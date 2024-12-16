@@ -28,6 +28,7 @@ const model = new Ollama({
 const embeddings = new OllamaEmbeddings({
   baseUrl: "http://localhost:11434",
   model: "mistral",
+  maxConcurrency: 5
 });
 
 async function initializeVectorStore() {
@@ -37,9 +38,7 @@ async function initializeVectorStore() {
   try {
     console.log('Starting vector store initialization...');
     const pdfFiles = [
-     // 'l10manual_en.pdf',
       'live12-manual-en.pdf'
-    //  'user_manual_en.pdf'
     ];
 
     const splitter = new RecursiveCharacterTextSplitter({
@@ -54,6 +53,7 @@ async function initializeVectorStore() {
         console.log(`Loading ${pdfFile}...`);
         const loader = new PDFLoader(pdfPath);
         const docs = await loader.load();
+        console.log(`Splitting ${pdfFile} into chunks...`);
         const chunks = await splitter.splitDocuments(docs);
         allDocs = [...allDocs, ...chunks];
         console.log(`Processed ${pdfFile} - ${chunks.length} chunks created`);
@@ -63,7 +63,7 @@ async function initializeVectorStore() {
       }
     }
 
-    console.log('Creating vector store...');
+    console.log('Creating embeddings and vector store...');
     vectorStore = await HNSWLib.fromDocuments(allDocs, embeddings);
     console.log('Vector store initialized successfully');
     initializationError = null;
@@ -83,7 +83,8 @@ initializeVectorStore().catch(console.error);
 app.get('/api/health', (req, res) => {
   res.json({
     status: vectorStore ? 'ready' : 'initializing',
-    error: initializationError ? initializationError.message : null
+    error: initializationError ? initializationError.message : null,
+    isInitializing
   });
 });
 
@@ -92,10 +93,16 @@ app.post('/api/chat', async (req, res) => {
   try {
     if (!vectorStore) {
       if (isInitializing) {
-        return res.status(503).json({ error: 'Service is still initializing. Please try again in a moment.' });
+        return res.status(503).json({ 
+          error: 'Service is still initializing. Please try again in a moment.',
+          status: 'initializing'
+        });
       }
       if (initializationError) {
-        return res.status(500).json({ error: 'Service failed to initialize. Please check the server logs.' });
+        return res.status(500).json({ 
+          error: 'Service failed to initialize. Please check the server logs.',
+          details: initializationError.message
+        });
       }
       // Try to initialize if not already done
       await initializeVectorStore();
@@ -105,12 +112,17 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const { message } = req.body;
+    console.log('Received question:', message);
     
     // Get relevant context
+    console.log('Searching for relevant context...');
     const results = await vectorStore.similaritySearch(message, 5);
+    console.log(`Found ${results.length} relevant chunks`);
+    
     const context = results.map(doc => doc.pageContent).join('\n\n');
     
     // Generate response using Ollama
+    console.log('Generating response with Ollama...');
     const prompt = `You are an Ableton Live expert assistant. Use the following context from the Ableton documentation to answer the user's question. Only use information from the provided context, and if you cannot find relevant information, say so.
 
 Context:
@@ -121,6 +133,7 @@ User Question: ${message}
 Answer: `;
 
     const response = await model.call(prompt);
+    console.log('Response generated successfully');
     
     res.json({ 
       response,
@@ -131,7 +144,10 @@ Answer: `;
     });
   } catch (error) {
     console.error('Error processing chat request:', error);
-    res.status(500).json({ error: 'Failed to process request' });
+    res.status(500).json({ 
+      error: 'Failed to process request',
+      details: error.message
+    });
   }
 });
 

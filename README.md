@@ -1,6 +1,6 @@
 # Ableton Documentation Assistant
 
-A local chatbot that helps you find information from Ableton's documentation using RAG (Retrieval Augmented Generation) architecture.
+A local chatbot that helps you find information from Ableton's documentation using a RAG (Retrieval Augmented Generation) architecture.
 
 ## Prerequisites
 
