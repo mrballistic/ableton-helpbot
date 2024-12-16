@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Container, 
   Paper, 
@@ -11,7 +11,13 @@ import {
   ListItemText,
   CircularProgress,
   Alert,
-  Snackbar
+  Snackbar,
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  useMediaQuery,
+  Modal,
+  LinearProgress
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 
@@ -20,9 +26,46 @@ function App() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Detect if user prefers dark mode
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+
+  // Create theme based on user preference
+  const theme = createTheme({
+    palette: {
+      mode: prefersDarkMode ? 'dark' : 'light',
+    },
+  });
+
+  // Check health endpoint periodically
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/health');
+        const data = await response.json();
+        setIsInitializing(data.isInitializing);
+        if (data.error) {
+          setError(data.error);
+        }
+      } catch (err) {
+        console.error('Error checking health:', err);
+        setError('Failed to connect to server');
+      }
+    };
+
+    // Check immediately
+    checkHealth();
+
+    // Then check every 5 seconds
+    const interval = setInterval(checkHealth, 5000);
+
+    // Cleanup
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || isInitializing) return;
 
     const userMessage = input.trim();
     setInput('');
@@ -72,100 +115,141 @@ function App() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ height: '100vh', py: 2 }}>
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column',
-          bgcolor: 'grey.50'
-        }}
-      >
-        <Typography 
-          variant="h5" 
-          component="div" 
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Container maxWidth="md" sx={{ height: '100vh', py: 2 }}>
+        <Paper 
+          elevation={3} 
           sx={{ 
-            p: 2, 
-            bgcolor: 'primary.main', 
-            color: 'white',
-            borderTopLeftRadius: 4,
-            borderTopRightRadius: 4
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            bgcolor: 'background.paper'
           }}
         >
-          Ableton Documentation Assistant
-        </Typography>
+          <Typography 
+            variant="h5" 
+            component="div" 
+            sx={{ 
+              p: 2, 
+              bgcolor: 'primary.main', 
+              color: 'primary.contrastText',
+              borderTopLeftRadius: 4,
+              borderTopRightRadius: 4
+            }}
+          >
+            Ableton Documentation Assistant
+          </Typography>
 
-        <List sx={{ 
-          flexGrow: 1, 
-          overflow: 'auto', 
-          p: 2,
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          {messages.map((message, index) => (
-            <ListItem
-              key={index}
-              sx={{
-                justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-                mb: 1
-              }}
-            >
-              <Paper
-                elevation={1}
+          <List sx={{ 
+            flexGrow: 1, 
+            overflow: 'auto', 
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {messages.map((message, index) => (
+              <ListItem
+                key={index}
                 sx={{
-                  maxWidth: '70%',
-                  p: 2,
-                  bgcolor: message.sender === 'user' ? 'primary.light' : 'white',
-                  color: message.sender === 'user' ? 'white' : 'text.primary'
+                  justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                  mb: 1
                 }}
               >
-                <ListItemText primary={message.text} />
-              </Paper>
-            </ListItem>
-          ))}
-          {loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-              <CircularProgress />
+                <Paper
+                  elevation={1}
+                  sx={{
+                    maxWidth: '70%',
+                    p: 2,
+                    bgcolor: message.sender === 'user' ? 'primary.main' : 'background.default',
+                    color: message.sender === 'user' ? 'primary.contrastText' : 'text.primary'
+                  }}
+                >
+                  <ListItemText 
+                    primary={message.text}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        whiteSpace: 'pre-wrap',
+                      },
+                    }}
+                  />
+                </Paper>
+              </ListItem>
+            ))}
+            {loading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+                <CircularProgress />
+              </Box>
+            )}
+          </List>
+
+          <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder={isInitializing ? "Initializing..." : "Ask a question about Ableton..."}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                multiline
+                maxRows={4}
+                size="small"
+                disabled={loading || isInitializing}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: 'background.default',
+                  },
+                }}
+              />
+              <IconButton 
+                color="primary" 
+                onClick={handleSend}
+                disabled={loading || !input.trim() || isInitializing}
+              >
+                <SendIcon />
+              </IconButton>
             </Box>
-          )}
-        </List>
-
-        <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Ask a question about Ableton..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              multiline
-              maxRows={4}
-              size="small"
-              disabled={loading}
-            />
-            <IconButton 
-              color="primary" 
-              onClick={handleSend}
-              disabled={loading || !input.trim()}
-            >
-              <SendIcon />
-            </IconButton>
           </Box>
-        </Box>
-      </Paper>
+        </Paper>
 
-      <Snackbar 
-        open={!!error} 
-        autoHideDuration={6000} 
-        onClose={() => setError(null)}
-      >
-        <Alert severity="error" onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      </Snackbar>
-    </Container>
+        <Modal
+          open={isInitializing}
+          aria-labelledby="initialization-modal-title"
+          aria-describedby="initialization-modal-description"
+        >
+          <Box sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 400,
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 2,
+          }}>
+            <Typography id="initialization-modal-title" variant="h6" component="h2" gutterBottom>
+              Initializing Documentation Assistant
+            </Typography>
+            <Typography id="initialization-modal-description" sx={{ mt: 2, mb: 3 }}>
+              Please wait while we process the documentation and create embeddings. This may take a few minutes...
+            </Typography>
+            <LinearProgress />
+          </Box>
+        </Modal>
+
+        <Snackbar 
+          open={!!error} 
+          autoHideDuration={6000} 
+          onClose={() => setError(null)}
+        >
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </ThemeProvider>
   );
 }
 
