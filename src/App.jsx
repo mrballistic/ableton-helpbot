@@ -17,9 +17,11 @@ import {
   CssBaseline,
   useMediaQuery,
   Modal,
-  LinearProgress
+  LinearProgress,
+  Stack
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -127,9 +129,10 @@ function App() {
             bgcolor: 'background.paper'
           }}
         >
-          <Typography 
-            variant="h5" 
-            component="div" 
+          <Stack 
+            direction="row" 
+            alignItems="center" 
+            spacing={1}
             sx={{ 
               p: 2, 
               bgcolor: 'primary.main', 
@@ -138,8 +141,11 @@ function App() {
               borderTopRightRadius: 4
             }}
           >
-            Ableton Documentation Assistant
-          </Typography>
+            <SmartToyIcon />
+            <Typography variant="h5" component="div">
+              Ableton Documentation Assistant
+            </Typography>
+          </Stack>
 
           <List sx={{ 
             flexGrow: 1, 
