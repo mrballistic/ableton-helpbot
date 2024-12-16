@@ -37,9 +37,9 @@ async function initializeVectorStore() {
   try {
     console.log('Starting vector store initialization...');
     const pdfFiles = [
-      'l10manual_en.pdf',
-      'live12-manual-en.pdf',
-      'user_manual_en.pdf'
+     // 'l10manual_en.pdf',
+      'live12-manual-en.pdf'
+    //  'user_manual_en.pdf'
     ];
 
     const splitter = new RecursiveCharacterTextSplitter({
