@@ -1,12 +1,11 @@
 import express from 'express';
 import cors from 'cors';
-import { PDFLoader } from "langchain/document_loaders/fs/pdf";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import { Worker } from 'worker_threads';
 import { Ollama } from "@langchain/community/llms/ollama";
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
-import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { cpus } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,46 +24,111 @@ const model = new Ollama({
   model: "mistral",
 });
 
-const embeddings = new OllamaEmbeddings({
-  baseUrl: "http://localhost:11434",
-  model: "mistral",
-  maxConcurrency: 5
-});
+// Function to create a worker for processing PDF chunks
+function createWorker(pdfPath, startPage, endPage) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker('./worker.js', {
+      workerData: { pdfPath, startPage, endPage }
+    });
+
+    let workerOutput = '';
+    worker.on('message', (message) => {
+      if (message.success) {
+        resolve(message.data);
+      } else {
+        reject(new Error(message.error));
+      }
+    });
+
+    worker.on('error', reject);
+    worker.on('exit', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}\nOutput: ${workerOutput}`));
+      }
+    });
+  });
+}
 
 async function initializeVectorStore() {
   if (isInitializing) return;
   isInitializing = true;
 
   try {
-    console.log('Starting vector store initialization...');
+    console.log('Starting parallel vector store initialization...');
     const pdfFiles = [
       'live12-manual-en.pdf'
     ];
 
-    const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 1000,
-      chunkOverlap: 200,
-    });
+    // Process each PDF in parallel with multiple workers per PDF
+    const numCPUs = cpus().length;
+    const workersPerPDF = Math.max(2, Math.floor(numCPUs / pdfFiles.length));
+    console.log(`Using ${workersPerPDF} workers per PDF on ${numCPUs} CPU cores`);
 
-    let allDocs = [];
-    for (const pdfFile of pdfFiles) {
+    const allProcessedChunks = await Promise.all(pdfFiles.map(async (pdfFile) => {
+      const pdfPath = join(__dirname, 'pdf', pdfFile);
+      console.log(`Processing ${pdfFile} with ${workersPerPDF} workers`);
+
       try {
-        const pdfPath = join(__dirname, 'pdf', pdfFile);
-        console.log(`Loading ${pdfFile}...`);
+        // Get total pages in PDF
+        const { PDFLoader } = await import("langchain/document_loaders/fs/pdf");
         const loader = new PDFLoader(pdfPath);
         const docs = await loader.load();
-        console.log(`Splitting ${pdfFile} into chunks...`);
-        const chunks = await splitter.splitDocuments(docs);
-        allDocs = [...allDocs, ...chunks];
-        console.log(`Processed ${pdfFile} - ${chunks.length} chunks created`);
+        const totalPages = docs.length;
+        
+        // Create workers for page ranges
+        const pagesPerWorker = Math.ceil(totalPages / workersPerPDF);
+        const workerPromises = [];
+
+        for (let i = 0; i < workersPerPDF; i++) {
+          const startPage = i * pagesPerWorker + 1;
+          const endPage = Math.min((i + 1) * pagesPerWorker, totalPages);
+          
+          if (startPage <= endPage) {
+            console.log(`Creating worker for pages ${startPage}-${endPage}`);
+            workerPromises.push(createWorker(pdfPath, startPage, endPage));
+          }
+        }
+
+        // Wait for all workers to complete and combine their results
+        const workerResults = await Promise.all(workerPromises);
+        const flatResults = workerResults.flat();
+        console.log(`Processed ${flatResults.length} chunks from ${pdfFile}`);
+        return flatResults;
       } catch (error) {
         console.error(`Error processing ${pdfFile}:`, error);
         throw error;
       }
+    }));
+
+    // Combine all processed chunks
+    const processedDocs = allProcessedChunks.flat();
+    console.log(`Total processed chunks across all PDFs: ${processedDocs.length}`);
+
+    if (processedDocs.length === 0) {
+      throw new Error('No documents were processed successfully');
     }
 
-    console.log('Creating embeddings and vector store...');
-    vectorStore = await HNSWLib.fromDocuments(allDocs, embeddings);
+    // Create vector store from processed documents
+    console.log('Creating vector store from processed documents...');
+    vectorStore = new HNSWLib({
+      space: 'cosine',
+      numDimensions: processedDocs[0].embedding.length
+    });
+
+    // Add vectors in batches to avoid memory issues
+    const batchSize = 500;
+    for (let i = 0; i < processedDocs.length; i += batchSize) {
+      const batch = processedDocs.slice(i, i + batchSize);
+      await vectorStore.addVectors(
+        batch.map(doc => doc.embedding),
+        batch.map(doc => ({
+          pageContent: doc.pageContent,
+          metadata: doc.metadata
+        }))
+      );
+      console.log(`Added batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(processedDocs.length / batchSize)} to vector store`);
+    }
+
     console.log('Vector store initialized successfully');
     initializationError = null;
   } catch (error) {
@@ -112,6 +176,10 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const { message } = req.body;
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
     console.log('Received question:', message);
     
     // Get relevant context
@@ -155,3 +223,5 @@ const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+export { app };
