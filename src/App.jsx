@@ -22,7 +22,6 @@ import {
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { grey } from '@mui/material/colors';
 
 // Create a visually hidden component for screen readers
 const VisuallyHidden = ({ children }) => (
@@ -50,6 +49,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [initProgress, setInitProgress] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -79,6 +79,7 @@ function App() {
         const response = await fetch('http://localhost:3000/api/health');
         const data = await response.json();
         setIsInitializing(data.isInitializing);
+        setInitProgress(data.progress || '');
         if (data.error) {
           setError(data.error);
         }
@@ -243,7 +244,7 @@ function App() {
 
           <Box 
             component="footer" 
-            sx={{ p: 2, bgcolor: 'grey.800', borderTop: 1, borderColor: 'grey.600' }}
+            sx={{ p: 2, bgcolor: 'background.paper' }}
             role="complementary"
           >
             <Box 
@@ -302,7 +303,7 @@ function App() {
               Initializing Documentation Assistant
             </Typography>
             <Typography id="initialization-modal-description" sx={{ mt: 2, mb: 3 }}>
-              Please wait while we process the documentation and create embeddings. This may take awhile...
+              {initProgress || 'Please wait while we process the documentation...'}
             </Typography>
             <LinearProgress aria-label="Initialization progress" />
           </Box>
@@ -326,7 +327,7 @@ function App() {
         <VisuallyHidden>
           <div role="status" aria-live="polite">
             {loading ? 'Processing your request...' : ''}
-            {isInitializing ? 'Initializing the documentation assistant...' : ''}
+            {isInitializing ? initProgress || 'Initializing the documentation assistant...' : ''}
           </div>
         </VisuallyHidden>
       </Container>

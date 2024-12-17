@@ -19,6 +19,7 @@ app.use(express.json());
 let vectorStore = null;
 let isInitializing = false;
 let initializationError = null;
+let initializationProgress = '';
 
 const model = new Ollama({
   baseUrl: "http://localhost:11434",
@@ -28,7 +29,8 @@ const model = new Ollama({
 const embeddings = new OllamaEmbeddings({
   baseUrl: "http://localhost:11434",
   model: "mistral",
-  maxConcurrency: 5
+  maxConcurrency: 5,
+  batchSize: 512  // Process embeddings in smaller batches
 });
 
 // Function to create a worker for processing PDF chunks
@@ -56,12 +58,29 @@ function createWorker(pdfPath, startPage, endPage) {
   });
 }
 
+async function processInBatches(items, batchSize, processFunction, progressCallback) {
+  const batches = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    batches.push(items.slice(i, i + batchSize));
+  }
+
+  const results = [];
+  for (let i = 0; i < batches.length; i++) {
+    const result = await processFunction(batches[i]);
+    results.push(...result);
+    progressCallback(i + 1, batches.length);
+  }
+  return results;
+}
+
 async function initializeVectorStore() {
   if (isInitializing) return;
   isInitializing = true;
 
   try {
     console.log('Starting parallel vector store initialization...');
+    initializationProgress = 'Starting initialization...';
+    
     const pdfFiles = [
       'live12-manual-en.pdf'
     ];
@@ -74,6 +93,7 @@ async function initializeVectorStore() {
     const allProcessedChunks = await Promise.all(pdfFiles.map(async (pdfFile) => {
       const pdfPath = join(__dirname, 'pdf', pdfFile);
       console.log(`Processing ${pdfFile} with ${workersPerPDF} workers`);
+      initializationProgress = `Processing ${pdfFile}...`;
 
       try {
         // Get total pages in PDF
@@ -115,19 +135,52 @@ async function initializeVectorStore() {
       throw new Error('No documents were processed successfully');
     }
 
-    // Create vector store from processed documents
+    // Create vector store from processed documents in batches
     console.log('Creating vector store from processed documents...');
-    vectorStore = await HNSWLib.fromTexts(
-      processedDocs.map(doc => doc.pageContent),
-      processedDocs.map(doc => doc.metadata),
-      embeddings
+    initializationProgress = 'Generating embeddings...';
+
+    // Process in batches of 100 documents
+    const BATCH_SIZE = 100;
+    let currentVectorStore = null;
+
+    await processInBatches(
+      processedDocs,
+      BATCH_SIZE,
+      async (batch) => {
+        console.log(`Processing batch of ${batch.length} documents...`);
+        if (!currentVectorStore) {
+          // Create initial vector store
+          currentVectorStore = await HNSWLib.fromTexts(
+            batch.map(doc => doc.pageContent),
+            batch.map(doc => doc.metadata),
+            embeddings
+          );
+        } else {
+          // Add to existing vector store
+          await currentVectorStore.addDocuments(
+            batch.map(doc => ({
+              pageContent: doc.pageContent,
+              metadata: doc.metadata
+            }))
+          );
+        }
+        return batch;
+      },
+      (batchNum, totalBatches) => {
+        const progress = Math.round((batchNum / totalBatches) * 100);
+        initializationProgress = `Generating embeddings: ${progress}% complete...`;
+        console.log(`Embedding progress: ${progress}%`);
+      }
     );
 
+    vectorStore = currentVectorStore;
     console.log('Vector store initialized successfully');
+    initializationProgress = 'Initialization complete';
     initializationError = null;
   } catch (error) {
     console.error('Failed to initialize vector store:', error);
     initializationError = error;
+    initializationProgress = 'Initialization failed';
     vectorStore = null;
   } finally {
     isInitializing = false;
@@ -142,7 +195,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: vectorStore ? 'ready' : 'initializing',
     error: initializationError ? initializationError.message : null,
-    isInitializing
+    isInitializing,
+    progress: initializationProgress
   });
 });
 
@@ -153,7 +207,8 @@ app.post('/api/chat', async (req, res) => {
       if (isInitializing) {
         return res.status(503).json({ 
           error: 'Service is still initializing. Please try again in a moment.',
-          status: 'initializing'
+          status: 'initializing',
+          progress: initializationProgress
         });
       }
       if (initializationError) {
