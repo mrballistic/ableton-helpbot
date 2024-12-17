@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Container, 
   Paper, 
@@ -23,12 +23,34 @@ import {
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 
+// Create a visually hidden component for screen readers
+const VisuallyHidden = ({ children }) => (
+  <span
+    style={{
+      border: 0,
+      clip: 'rect(0 0 0 0)',
+      height: '1px',
+      margin: '-1px',
+      overflow: 'hidden',
+      padding: 0,
+      position: 'absolute',
+      width: '1px',
+      whiteSpace: 'nowrap',
+      wordWrap: 'normal',
+    }}
+  >
+    {children}
+  </span>
+);
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Detect if user prefers dark mode
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -39,6 +61,15 @@ function App() {
       mode: prefersDarkMode ? 'dark' : 'light',
     },
   });
+
+  // Scroll to bottom of messages
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Check health endpoint periodically
   useEffect(() => {
@@ -106,6 +137,8 @@ function App() {
       setError('Failed to generate response. Please ensure the server is running.');
     } finally {
       setLoading(false);
+      // Focus back to input after response
+      inputRef.current?.focus();
     }
   };
 
@@ -119,7 +152,12 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth="md" sx={{ height: '100vh', py: 2 }}>
+      <Container 
+        maxWidth="md" 
+        sx={{ height: '100vh', py: 2 }}
+        role="main"
+        aria-label="Ableton Documentation Assistant Chat Interface"
+      >
         <Paper 
           elevation={3} 
           sx={{ 
@@ -133,6 +171,7 @@ function App() {
             direction="row" 
             alignItems="center" 
             spacing={1}
+            component="header"
             sx={{ 
               p: 2, 
               bgcolor: 'primary.main', 
@@ -141,19 +180,25 @@ function App() {
               borderTopRightRadius: 4
             }}
           >
-            <SmartToyIcon />
-            <Typography variant="h5" component="div">
+            <SmartToyIcon aria-hidden="true" />
+            <Typography variant="h5" component="h1">
               Ableton Documentation Assistant
             </Typography>
           </Stack>
 
-          <List sx={{ 
-            flexGrow: 1, 
-            overflow: 'auto', 
-            p: 2,
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
+          <List 
+            sx={{ 
+              flexGrow: 1, 
+              overflow: 'auto', 
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            aria-label="Chat messages"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+          >
             {messages.map((message, index) => (
               <ListItem
                 key={index}
@@ -161,6 +206,7 @@ function App() {
                   justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
                   mb: 1
                 }}
+                aria-label={`${message.sender === 'user' ? 'You' : 'Assistant'}: ${message.text}`}
               >
                 <Paper
                   elevation={1}
@@ -183,14 +229,27 @@ function App() {
               </ListItem>
             ))}
             {loading && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+              <Box 
+                sx={{ display: 'flex', justifyContent: 'center', my: 2 }}
+                role="status"
+                aria-label="Loading response"
+              >
                 <CircularProgress />
               </Box>
             )}
+            <div ref={messagesEndRef} tabIndex={-1} />
           </List>
 
-          <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box 
+            component="footer" 
+            sx={{ p: 2, bgcolor: 'background.paper' }}
+            role="complementary"
+          >
+            <Box 
+              sx={{ display: 'flex', gap: 1 }}
+              role="form"
+              aria-label="Message input form"
+            >
               <TextField
                 fullWidth
                 variant="outlined"
@@ -202,6 +261,8 @@ function App() {
                 maxRows={4}
                 size="small"
                 disabled={loading || isInitializing}
+                inputRef={inputRef}
+                aria-label="Message input"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: 'background.default',
@@ -212,6 +273,7 @@ function App() {
                 color="primary" 
                 onClick={handleSend}
                 disabled={loading || !input.trim() || isInitializing}
+                aria-label="Send message"
               >
                 <SendIcon />
               </IconButton>
@@ -241,7 +303,7 @@ function App() {
             <Typography id="initialization-modal-description" sx={{ mt: 2, mb: 3 }}>
               Please wait while we process the documentation and create embeddings. This may take a few minutes...
             </Typography>
-            <LinearProgress />
+            <LinearProgress aria-label="Initialization progress" />
           </Box>
         </Modal>
 
@@ -250,10 +312,22 @@ function App() {
           autoHideDuration={6000} 
           onClose={() => setError(null)}
         >
-          <Alert severity="error" onClose={() => setError(null)}>
+          <Alert 
+            severity="error" 
+            onClose={() => setError(null)}
+            role="alert"
+          >
             {error}
           </Alert>
         </Snackbar>
+
+        {/* Announcer for screen readers */}
+        <VisuallyHidden>
+          <div role="status" aria-live="polite">
+            {loading ? 'Processing your request...' : ''}
+            {isInitializing ? 'Initializing the documentation assistant...' : ''}
+          </div>
+        </VisuallyHidden>
       </Container>
     </ThemeProvider>
   );
