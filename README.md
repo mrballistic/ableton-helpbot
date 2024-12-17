@@ -126,7 +126,7 @@ No environment variables needed as the application runs locally.
 
 ## Performance
 
-- First run: Processes PDFs and creates vector store (~5-10 minutes)
+- First run: Processes PDFs and creates vector store (~30-60 minutes)
 - Subsequent runs: Loads existing vector store (seconds)
 - Memory usage: Efficient through batched processing
 - CPU usage: Parallel processing based on available cores
