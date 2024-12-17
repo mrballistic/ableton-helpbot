@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import { grey } from '@mui/material/colors';
 
 // Create a visually hidden component for screen readers
 const VisuallyHidden = ({ children }) => (
@@ -242,7 +243,7 @@ function App() {
 
           <Box 
             component="footer" 
-            sx={{ p: 2, bgcolor: 'background.paper' }}
+            sx={{ p: 2, bgcolor: 'grey.800', borderTop: 1, borderColor: 'grey.600' }}
             role="complementary"
           >
             <Box 
