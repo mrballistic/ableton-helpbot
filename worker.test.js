@@ -23,20 +23,12 @@ jest.mock('langchain/document_loaders/fs/pdf', () => ({
   }))
 }));
 
-jest.mock('@langchain/community/embeddings/ollama', () => ({
-  OllamaEmbeddings: jest.fn().mockImplementation(() => ({
-    embedDocuments: jest.fn().mockImplementation(texts => 
-      Promise.resolve(texts.map(() => new Array(384).fill(0.1)))
-    )
-  }))
-}));
-
 describe('PDF Processing Worker', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('processes PDF chunks and generates embeddings', async () => {
+  it('processes PDF pages within specified range', async () => {
     // Import the worker code
     await import('./worker.js');
 
@@ -50,8 +42,11 @@ describe('PDF Processing Worker', () => {
         data: expect.arrayContaining([
           expect.objectContaining({
             pageContent: expect.any(String),
-            metadata: expect.any(Object),
-            embedding: expect.any(Array)
+            metadata: expect.objectContaining({
+              loc: expect.objectContaining({
+                pageNumber: expect.any(Number)
+              })
+            })
           })
         ])
       })
@@ -59,11 +54,9 @@ describe('PDF Processing Worker', () => {
   });
 
   it('handles PDF loading errors', async () => {
-    // Mock PDF loader to throw an error
-    jest.mock('langchain/document_loaders/fs/pdf', () => ({
-      PDFLoader: jest.fn().mockImplementation(() => ({
-        load: jest.fn().mockRejectedValue(new Error('Failed to load PDF'))
-      }))
+    const { PDFLoader } = require('langchain/document_loaders/fs/pdf');
+    PDFLoader.mockImplementationOnce(() => ({
+      load: jest.fn().mockRejectedValue(new Error('Failed to load PDF'))
     }));
 
     // Import the worker code
@@ -76,17 +69,17 @@ describe('PDF Processing Worker', () => {
     expect(parentPort.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.any(String)
+        error: expect.stringContaining('Failed to load PDF')
       })
     );
   });
 
-  it('handles embedding generation errors', async () => {
-    // Mock embeddings to throw an error
-    jest.mock('@langchain/community/embeddings/ollama', () => ({
-      OllamaEmbeddings: jest.fn().mockImplementation(() => ({
-        embedDocuments: jest.fn().mockRejectedValue(new Error('Embedding failed'))
-      }))
+  it('splits documents into chunks', async () => {
+    const { PDFLoader } = require('langchain/document_loaders/fs/pdf');
+    PDFLoader.mockImplementationOnce(() => ({
+      load: jest.fn().mockResolvedValue([
+        { pageContent: 'A'.repeat(2000), metadata: { loc: { pageNumber: 1 } } }
+      ])
     }));
 
     // Import the worker code
@@ -95,46 +88,82 @@ describe('PDF Processing Worker', () => {
     // Wait for async operations to complete
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Verify error handling
-    expect(parentPort.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.any(String)
-      })
-    );
-  });
-
-  it('processes documents in batches', async () => {
-    // Mock PDF loader to return more documents
-    jest.mock('langchain/document_loaders/fs/pdf', () => ({
-      PDFLoader: jest.fn().mockImplementation(() => ({
-        load: jest.fn().mockResolvedValue(
-          Array(10).fill().map((_, i) => ({
-            pageContent: `Test content ${i + 1}`,
-            metadata: { loc: { pageNumber: i + 1 } }
-          }))
-        )
-      }))
-    }));
-
-    // Import the worker code
-    await import('./worker.js');
-
-    // Wait for async operations to complete
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Verify batched processing
+    // Verify chunks were created
     const message = parentPort.postMessage.mock.calls[0][0];
     expect(message.success).toBe(true);
-    expect(message.data.length).toBeGreaterThan(0);
-    expect(message.data).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          pageContent: expect.any(String),
-          metadata: expect.any(Object),
-          embedding: expect.any(Array)
-        })
+    expect(message.data.length).toBeGreaterThan(1); // Should split into multiple chunks
+  });
+
+  it('preserves metadata in chunks', async () => {
+    const testMetadata = {
+      loc: { pageNumber: 1, fileName: 'test.pdf' },
+      custom: 'value'
+    };
+
+    const { PDFLoader } = require('langchain/document_loaders/fs/pdf');
+    PDFLoader.mockImplementationOnce(() => ({
+      load: jest.fn().mockResolvedValue([
+        { pageContent: 'Test content', metadata: testMetadata }
       ])
+    }));
+
+    // Import the worker code
+    await import('./worker.js');
+
+    // Wait for async operations to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Verify metadata preservation
+    const message = parentPort.postMessage.mock.calls[0][0];
+    expect(message.success).toBe(true);
+    expect(message.data[0].metadata).toEqual(
+      expect.objectContaining(testMetadata)
     );
+  });
+
+  it('respects page range filters', async () => {
+    const { PDFLoader } = require('langchain/document_loaders/fs/pdf');
+    const loadMock = jest.fn().mockResolvedValue([
+      { pageContent: 'Page 1', metadata: { loc: { pageNumber: 1 } } },
+      { pageContent: 'Page 2', metadata: { loc: { pageNumber: 2 } } },
+      { pageContent: 'Page 3', metadata: { loc: { pageNumber: 3 } } }
+    ]);
+
+    PDFLoader.mockImplementationOnce(() => ({
+      load: loadMock
+    }));
+
+    // Import the worker code
+    await import('./worker.js');
+
+    // Wait for async operations to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Verify page filtering
+    expect(PDFLoader).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        splitPages: true,
+        pageFilter: expect.any(Function)
+      })
+    );
+  });
+
+  it('handles empty documents gracefully', async () => {
+    const { PDFLoader } = require('langchain/document_loaders/fs/pdf');
+    PDFLoader.mockImplementationOnce(() => ({
+      load: jest.fn().mockResolvedValue([])
+    }));
+
+    // Import the worker code
+    await import('./worker.js');
+
+    // Wait for async operations to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Verify empty document handling
+    const message = parentPort.postMessage.mock.calls[0][0];
+    expect(message.success).toBe(true);
+    expect(message.data).toEqual([]);
   });
 });

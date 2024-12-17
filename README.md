@@ -1,116 +1,161 @@
 # Ableton Documentation Assistant
 
-A local chatbot that helps you find information from Ableton's documentation using a RAG (Retrieval Augmented Generation) architecture.
-
-## Prerequisites
-
-1. **Install Ollama**
-   ```bash
-   # On macOS using Homebrew
-   brew install ollama
-
-   # After installation, start Ollama
-   ollama serve
-
-   # In a new terminal, pull the Mistral model
-   ollama pull mistral
-   ```
-   For other platforms, visit [ollama.ai](https://ollama.ai) for installation instructions.
-
-2. **Python Environment**
-   ```bash
-   # Create and activate a Python virtual environment
-   python -m venv venv
-   source venv/bin/activate  # On Unix/macOS
-   # OR
-   .\venv\Scripts\activate  # On Windows
-
-   # Install ChromaDB
-   pip install chromadb
-   ```
-
-## Setup
-
-1. Install Node.js dependencies:
-   ```bash
-   npm install
-   ```
-
-2. Start both the frontend and backend servers:
-   ```bash
-   npm start
-   ```
-
-   This will start:
-   - Frontend development server at [http://localhost:5173](http://localhost:5173)
-   - Backend server at [http://localhost:3000](http://localhost:3000)
-
-## Usage
-
-1. Ensure all services are running:
-   - Ollama service with Mistral model
-   - Backend Express server
-   - Frontend development server
-
-2. Open [http://localhost:5173](http://localhost:5173) in your browser
-3. Wait for the backend to initialize (it will load and process the PDF documents on first run)
-4. Start asking questions about Ableton in the chat interface
+A RAG-based chatbot that provides answers from Ableton Live's documentation using local LLM processing.
 
 ## Features
 
-- Real-time chat interface built with React and Material-UI
-- RAG (Retrieval Augmented Generation) architecture:
-  - PDF document processing and chunking
-  - Vector storage in ChromaDB
-  - Semantic search for relevant context
-  - Response generation using Ollama (Mistral model)
-- Error handling and loading states
-- Responsive design
+- Local LLM processing using Ollama
+- PDF document processing with parallel workers
+- Vector store persistence for fast startup
+- Automatic dark/light mode
+- Accessibility support
+- Real-time initialization progress
+- Memory-efficient processing
+
+## Prerequisites
+
+- Node.js 18+
+- Ollama installed (`brew install ollama` on macOS)
+- The Mistral model pulled (`ollama pull mistral`)
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone [repository-url]
+cd ableton-rag
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Place Ableton PDF documentation in the `/pdf` directory:
+```
+pdf/
+└── live12-manual-en.pdf
+```
+
+## Running the Application
+
+1. Start Ollama:
+```bash
+brew services start ollama
+```
+
+2. Start the application:
+```bash
+npm start
+```
+
+This will:
+- Start the React development server
+- Launch the Express backend
+- Process PDFs (first run only)
+- Create and save the vector store
 
 ## Architecture
 
-This application uses a RAG (Retrieval Augmented Generation) architecture:
+### Frontend
+- React with Material-UI
+- Automatic dark/light mode detection
+- Real-time initialization progress
+- Accessibility features
+- Responsive design
 
-1. **Backend (Express.js)**
-   - Handles PDF document processing and storage
-   - Manages ChromaDB interactions
-   - Coordinates with Ollama for response generation
-   - Provides RESTful API endpoints
+### Backend
+- Express server
+- PDF processing with worker threads
+- Vector store management
+- LLM integration
+- Error handling
 
-2. **Frontend (React + MUI)**
-   - Modern, responsive chat interface
-   - Real-time interaction with backend
-   - Error handling and loading states
+### Vector Store
+- HNSWLib for efficient similarity search
+- Persistent storage
+- Batched processing
+- Memory-efficient operation
 
-3. **Document Processing**
-   - PDFs are loaded and split into chunks
-   - Chunks are stored in ChromaDB with embeddings
-   - Semantic search finds relevant context for queries
+### Processing Pipeline
+1. PDF Loading
+   - Parallel processing with worker threads
+   - Page-range distribution
+   - Progress tracking
 
-4. **Response Generation**
-   - Relevant document chunks are retrieved
-   - Context is combined with user query
-   - Mistral model generates contextual responses
+2. Text Processing
+   - Chunk generation
+   - Metadata preservation
+   - Batch processing
 
-## Troubleshooting
+3. Vector Store
+   - Embedding generation
+   - Persistent storage
+   - Fast loading
 
-1. **Ollama Issues**
-   - Install Ollama if not installed: `brew install ollama` (macOS)
-   - Start Ollama service: `ollama serve`
-   - Pull Mistral model: `ollama pull mistral`
-   - Verify installation: `ollama list`
+## Development
 
-2. **ChromaDB Issues**
-   - Check Python virtual environment is activated
-   - Verify ChromaDB installation: `pip list | grep chromadb`
-   - Check file permissions for the database directory
+### Running Tests
+```bash
+# Run all tests
+npm test
 
-3. **Backend Server Issues**
-   - Check if server is running on port 3000
-   - Look for initialization errors in console
-   - Verify PDF files are accessible
+# Run frontend tests
+npm run test:frontend
 
-4. **Frontend Issues**
-   - Clear browser cache
-   - Check browser console for errors
-   - Verify connection to backend server
+# Run backend tests
+npm run test:backend
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Project Structure
+```
+├── src/                  # Frontend source
+│   ├── App.jsx          # Main React component
+│   └── App.test.jsx     # Frontend tests
+├── server.js            # Express backend
+├── worker.js            # PDF processing worker
+├── pdf/                 # PDF documentation
+└── vector_store/        # Persistent vector storage
+```
+
+### Environment Variables
+No environment variables needed as the application runs locally.
+
+## Performance
+
+- First run: Processes PDFs and creates vector store (~5-10 minutes)
+- Subsequent runs: Loads existing vector store (seconds)
+- Memory usage: Efficient through batched processing
+- CPU usage: Parallel processing based on available cores
+
+## Accessibility
+
+- Screen reader support
+- Keyboard navigation
+- ARIA labels
+- Progress announcements
+- Color contrast compliance
+- Focus management
+
+## Error Handling
+
+- PDF processing errors
+- LLM connection issues
+- Vector store failures
+- Network problems
+- Initialization errors
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+See [LICENSE.md](license.md) for details.

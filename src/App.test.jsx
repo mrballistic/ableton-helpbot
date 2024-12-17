@@ -20,7 +20,8 @@ describe('App', () => {
       if (url.includes('/api/health')) {
         return Promise.resolve(createFetchResponse({ 
           status: 'ready',
-          isInitializing: false 
+          isInitializing: false,
+          progress: ''
         }));
       }
       return Promise.resolve(createFetchResponse({}));
@@ -30,183 +31,199 @@ describe('App', () => {
   it('renders the header with title and robot icon', () => {
     render(<App />);
     expect(screen.getByText('Ableton Documentation Assistant')).toBeInTheDocument();
-    // Check if the SmartToy icon is rendered (by its SVG role)
     expect(screen.getByRole('img', { hidden: true })).toBeInTheDocument();
   });
 
-  it('shows initialization modal when vector store is being created', async () => {
-    fetch.mockImplementationOnce(() => 
-      Promise.resolve(createFetchResponse({ 
-        status: 'initializing',
-        isInitializing: true 
-      }))
-    );
+  describe('Initialization States', () => {
+    it('shows initialization modal with progress', async () => {
+      const progressMessage = 'Processing PDF files: 50% complete';
+      fetch.mockImplementationOnce(() => 
+        Promise.resolve(createFetchResponse({ 
+          status: 'initializing',
+          isInitializing: true,
+          progress: progressMessage
+        }))
+      );
 
-    render(<App />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Initializing Documentation Assistant')).toBeInTheDocument();
-      expect(screen.getByText(/Please wait while we process the documentation/)).toBeInTheDocument();
-      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+      render(<App />);
+      
+      await waitFor(() => {
+        expect(screen.getByText('Initializing Documentation Assistant')).toBeInTheDocument();
+        expect(screen.getByText(progressMessage)).toBeInTheDocument();
+        expect(screen.getByRole('progressbar')).toBeInTheDocument();
+      });
+    });
+
+    it('updates progress message in modal', async () => {
+      const user = userEvent.setup();
+      const progressMessages = [
+        'Starting initialization...',
+        'Processing PDF files...',
+        'Generating embeddings: 50% complete...',
+        'Initialization complete'
+      ];
+      
+      let currentMessageIndex = 0;
+      fetch.mockImplementation(() => 
+        Promise.resolve(createFetchResponse({ 
+          status: currentMessageIndex === progressMessages.length - 1 ? 'ready' : 'initializing',
+          isInitializing: currentMessageIndex < progressMessages.length - 1,
+          progress: progressMessages[currentMessageIndex++]
+        }))
+      );
+
+      render(<App />);
+
+      // Verify progress updates
+      for (const message of progressMessages.slice(0, -1)) {
+        await waitFor(() => {
+          expect(screen.getByText(message)).toBeInTheDocument();
+        });
+      }
+
+      // Verify modal closes after completion
+      await waitFor(() => {
+        expect(screen.queryByText('Initializing Documentation Assistant')).not.toBeInTheDocument();
+      });
+    });
+
+    it('shows error state in modal', async () => {
+      fetch.mockImplementationOnce(() => 
+        Promise.resolve(createFetchResponse({ 
+          status: 'error',
+          isInitializing: false,
+          error: 'Failed to initialize vector store',
+          progress: 'Initialization failed'
+        }))
+      );
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Failed to initialize vector store/)).toBeInTheDocument();
+      });
     });
   });
 
-  it('removes initialization modal when vector store is ready', async () => {
-    const user = userEvent.setup();
-    
-    // First health check shows initializing
-    fetch.mockImplementationOnce(() => 
-      Promise.resolve(createFetchResponse({ 
-        status: 'initializing',
-        isInitializing: true 
-      }))
-    );
+  describe('Chat Functionality', () => {
+    it('handles successful chat interaction', async () => {
+      const user = userEvent.setup();
+      render(<App />);
 
-    render(<App />);
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Ask a question about Ableton...')).toBeEnabled();
+      });
 
-    // Verify modal is shown
-    await waitFor(() => {
-      expect(screen.getByText('Initializing Documentation Assistant')).toBeInTheDocument();
+      const input = screen.getByPlaceholderText('Ask a question about Ableton...');
+      const testMessage = 'What is Session View?';
+
+      fetch.mockImplementationOnce(() => 
+        Promise.resolve(createFetchResponse({
+          response: 'Session View is a workspace in Ableton Live.',
+          context: [{ content: 'Test context', metadata: {} }]
+        }))
+      );
+
+      await user.type(input, testMessage);
+      await user.click(screen.getByRole('button', { name: 'Send message' }));
+
+      await waitFor(() => {
+        expect(screen.getByText(testMessage)).toBeInTheDocument();
+        expect(screen.getByText('Session View is a workspace in Ableton Live.')).toBeInTheDocument();
+      });
     });
 
-    // Next health check shows ready
-    fetch.mockImplementationOnce(() => 
-      Promise.resolve(createFetchResponse({ 
-        status: 'ready',
-        isInitializing: false 
-      }))
-    );
+    it('shows loading state during chat', async () => {
+      const user = userEvent.setup();
+      render(<App />);
 
-    // Wait for modal to disappear
-    await waitFor(() => {
-      expect(screen.queryByText('Initializing Documentation Assistant')).not.toBeInTheDocument();
-    });
-  });
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Ask a question about Ableton...')).toBeEnabled();
+      });
 
-  it('allows message input and submission when initialized', async () => {
-    const user = userEvent.setup();
-    render(<App />);
+      fetch.mockImplementationOnce(() => 
+        new Promise(resolve => setTimeout(() => resolve(createFetchResponse({
+          response: 'Test response',
+          context: [{ content: 'Test context', metadata: {} }]
+        })), 100))
+      );
 
-    // Wait for initialization check
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Ask a question about Ableton...')).toBeEnabled();
-    });
+      const input = screen.getByPlaceholderText('Ask a question about Ableton...');
+      await user.type(input, 'Test message');
+      await user.click(screen.getByRole('button', { name: 'Send message' }));
 
-    const input = screen.getByPlaceholderText('Ask a question about Ableton...');
-    const testMessage = 'What is Session View?';
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      expect(input).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
 
-    // Mock the chat endpoint
-    fetch.mockImplementationOnce(() => 
-      Promise.resolve(createFetchResponse({
-        response: 'Session View is a workspace in Ableton Live.',
-        context: [{ content: 'Test context', metadata: {} }]
-      }))
-    );
-
-    // Type and send message
-    await user.type(input, testMessage);
-    await user.click(screen.getByRole('button'));
-
-    // Verify message was sent and response received
-    await waitFor(() => {
-      expect(screen.getByText(testMessage)).toBeInTheDocument();
-      expect(screen.getByText('Session View is a workspace in Ableton Live.')).toBeInTheDocument();
-    });
-  });
-
-  it('shows error message when API request fails', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    // Wait for initialization check
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Ask a question about Ableton...')).toBeEnabled();
+      await waitFor(() => {
+        expect(input).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+      });
     });
 
-    // Mock failed API call
-    fetch.mockImplementationOnce(() => 
-      Promise.reject(new Error('API Error'))
-    );
+    it('handles chat errors', async () => {
+      const user = userEvent.setup();
+      render(<App />);
 
-    // Type and send message
-    const input = screen.getByPlaceholderText('Ask a question about Ableton...');
-    await user.type(input, 'Test message');
-    await user.click(screen.getByRole('button'));
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Ask a question about Ableton...')).toBeEnabled();
+      });
 
-    // Verify error message
-    await waitFor(() => {
-      expect(screen.getByText(/Failed to generate response/)).toBeInTheDocument();
+      fetch.mockImplementationOnce(() => Promise.reject(new Error('API Error')));
+
+      const input = screen.getByPlaceholderText('Ask a question about Ableton...');
+      await user.type(input, 'Test message');
+      await user.click(screen.getByRole('button', { name: 'Send message' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/Failed to generate response/);
+      });
     });
   });
 
-  it('shows initialization error in modal', async () => {
-    // Mock health check with error
-    fetch.mockImplementationOnce(() => 
-      Promise.resolve(createFetchResponse({ 
-        status: 'error',
-        isInitializing: false,
-        error: 'Failed to initialize vector store' 
-      }))
-    );
+  describe('Accessibility', () => {
+    it('announces loading states to screen readers', async () => {
+      const user = userEvent.setup();
+      render(<App />);
 
-    render(<App />);
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Ask a question about Ableton...')).toBeEnabled();
+      });
 
-    await waitFor(() => {
-      expect(screen.getByText(/Failed to initialize vector store/)).toBeInTheDocument();
-    });
-  });
+      fetch.mockImplementationOnce(() => 
+        new Promise(resolve => setTimeout(() => resolve(createFetchResponse({
+          response: 'Test response'
+        })), 100))
+      );
 
-  it('disables input while loading', async () => {
-    const user = userEvent.setup();
-    render(<App />);
+      const input = screen.getByPlaceholderText('Ask a question about Ableton...');
+      await user.type(input, 'Test message');
+      await user.click(screen.getByRole('button', { name: 'Send message' }));
 
-    // Wait for initialization check
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Ask a question about Ableton...')).toBeEnabled();
+      expect(screen.getByText('Processing your request...')).toBeInTheDocument();
     });
 
-    // Mock delayed API response
-    fetch.mockImplementationOnce(() => 
-      new Promise(resolve => setTimeout(() => resolve(createFetchResponse({
-        response: 'Test response',
-        context: [{ content: 'Test context', metadata: {} }]
-      })), 100))
-    );
+    it('maintains focus management', async () => {
+      const user = userEvent.setup();
+      render(<App />);
 
-    // Type and send message
-    const input = screen.getByPlaceholderText('Ask a question about Ableton...');
-    await user.type(input, 'Test message');
-    await user.click(screen.getByRole('button'));
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Ask a question about Ableton...')).toBeEnabled();
+      });
 
-    // Verify input is disabled during loading
-    expect(input).toBeDisabled();
-    expect(screen.getByRole('button')).toBeDisabled();
+      const input = screen.getByPlaceholderText('Ask a question about Ableton...');
+      await user.type(input, 'Test message{Enter}');
 
-    // Wait for response
-    await waitFor(() => {
-      expect(input).toBeEnabled();
-      expect(screen.getByRole('button')).toBeEnabled();
+      fetch.mockImplementationOnce(() => 
+        Promise.resolve(createFetchResponse({
+          response: 'Test response'
+        }))
+      );
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(input);
+      });
     });
-  });
-
-  it('preserves dark mode preference', async () => {
-    // Mock matchMedia for dark mode preference
-    window.matchMedia = vi.fn().mockImplementation(query => ({
-      matches: query === '(prefers-color-scheme: dark)',
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
-
-    render(<App />);
-
-    // Verify dark mode styles are applied
-    const app = screen.getByRole('textbox');
-    const computedStyle = window.getComputedStyle(app);
-    expect(computedStyle).toBeDefined();
   });
 });

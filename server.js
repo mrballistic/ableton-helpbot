@@ -7,9 +7,16 @@ import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { cpus } from 'os';
+import { existsSync, mkdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Create a directory for storing the vector database
+const VECTOR_STORE_PATH = join(__dirname, 'vector_store');
+if (!existsSync(VECTOR_STORE_PATH)) {
+  mkdirSync(VECTOR_STORE_PATH);
+}
 
 const app = express();
 app.use(cors());
@@ -30,8 +37,29 @@ const embeddings = new OllamaEmbeddings({
   baseUrl: "http://localhost:11434",
   model: "mistral",
   maxConcurrency: 5,
-  batchSize: 512  // Process embeddings in smaller batches
+  batchSize: 512
 });
+
+async function loadExistingVectorStore() {
+  const indexPath = join(VECTOR_STORE_PATH, 'index');
+  const docStorePath = join(VECTOR_STORE_PATH, 'docstore.json');
+  
+  if (existsSync(indexPath) && existsSync(docStorePath)) {
+    console.log('Loading existing vector store...');
+    try {
+      const loadedVectorStore = await HNSWLib.load(
+        VECTOR_STORE_PATH,
+        embeddings
+      );
+      console.log('Vector store loaded successfully');
+      return loadedVectorStore;
+    } catch (error) {
+      console.error('Error loading vector store:', error);
+      return null;
+    }
+  }
+  return null;
+}
 
 // Function to create a worker for processing PDF chunks
 function createWorker(pdfPath, startPage, endPage) {
@@ -78,6 +106,18 @@ async function initializeVectorStore() {
   isInitializing = true;
 
   try {
+    // First try to load existing vector store
+    console.log('Checking for existing vector store...');
+    initializationProgress = 'Checking for existing vector store...';
+    
+    const existingStore = await loadExistingVectorStore();
+    if (existingStore) {
+      vectorStore = existingStore;
+      console.log('Using existing vector store');
+      initializationProgress = 'Loaded existing vector store';
+      return;
+    }
+
     console.log('Starting parallel vector store initialization...');
     initializationProgress = 'Starting initialization...';
     
@@ -174,7 +214,13 @@ async function initializeVectorStore() {
     );
 
     vectorStore = currentVectorStore;
-    console.log('Vector store initialized successfully');
+
+    // Save the vector store
+    console.log('Saving vector store...');
+    initializationProgress = 'Saving vector store...';
+    await vectorStore.save(VECTOR_STORE_PATH);
+
+    console.log('Vector store initialized and saved successfully');
     initializationProgress = 'Initialization complete';
     initializationError = null;
   } catch (error) {

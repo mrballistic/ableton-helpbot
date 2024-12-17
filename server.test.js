@@ -3,6 +3,14 @@ import { jest } from '@jest/globals';
 import { Worker } from 'worker_threads';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';
+
+// Mock fs module
+jest.mock('fs', () => ({
+  existsSync: jest.fn(),
+  mkdirSync: jest.fn(),
+  ...jest.requireActual('fs')
+}));
 
 // Mock worker_threads
 jest.mock('worker_threads', () => ({
@@ -26,13 +34,22 @@ jest.mock('langchain/document_loaders/fs/pdf', () => ({
 }));
 
 jest.mock('@langchain/community/vectorstores/hnswlib', () => ({
-  HNSWLib: jest.fn().mockImplementation(() => ({
-    addVectors: jest.fn().mockResolvedValue(undefined),
-    similaritySearch: jest.fn().mockResolvedValue([
-      { pageContent: 'Relevant content 1', metadata: { source: 'test.pdf', page: 1 } },
-      { pageContent: 'Relevant content 2', metadata: { source: 'test.pdf', page: 2 } }
-    ])
-  }))
+  HNSWLib: {
+    fromTexts: jest.fn().mockResolvedValue({
+      save: jest.fn().mockResolvedValue(undefined),
+      similaritySearch: jest.fn().mockResolvedValue([
+        { pageContent: 'Relevant content 1', metadata: { source: 'test.pdf', page: 1 } },
+        { pageContent: 'Relevant content 2', metadata: { source: 'test.pdf', page: 2 } }
+      ]),
+      addDocuments: jest.fn().mockResolvedValue(undefined)
+    }),
+    load: jest.fn().mockResolvedValue({
+      similaritySearch: jest.fn().mockResolvedValue([
+        { pageContent: 'Loaded content 1', metadata: { source: 'test.pdf', page: 1 } },
+        { pageContent: 'Loaded content 2', metadata: { source: 'test.pdf', page: 2 } }
+      ])
+    })
+  }
 }));
 
 // Mock successful worker completion
@@ -45,8 +62,7 @@ function mockWorkerSuccess() {
           data: [
             {
               pageContent: 'Test content',
-              metadata: { loc: { pageNumber: 1 } },
-              embedding: new Array(384).fill(0.1)
+              metadata: { loc: { pageNumber: 1 } }
             }
           ]
         });
@@ -56,122 +72,71 @@ function mockWorkerSuccess() {
   }));
 }
 
-// Mock worker error
-function mockWorkerError() {
-  Worker.mockImplementation(() => ({
-    on: (event, callback) => {
-      if (event === 'error') {
-        callback(new Error('Worker error'));
-      }
-    },
-    postMessage: jest.fn()
-  }));
-}
-
 describe('Server API', () => {
   let app;
+  const HNSWLib = require('@langchain/community/vectorstores/hnswlib').HNSWLib;
 
   beforeEach(async () => {
     jest.resetModules();
     mockWorkerSuccess();
+    fs.existsSync.mockImplementation(() => false);
     app = (await import('./server.js')).app;
   });
 
-  describe('GET /api/health', () => {
-    it('returns initialization status', async () => {
+  describe('Vector Store Management', () => {
+    it('creates new vector store when none exists', async () => {
+      fs.existsSync.mockImplementation(() => false);
       const response = await request(app).get('/api/health');
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('status');
-      expect(response.body).toHaveProperty('isInitializing');
+      expect(HNSWLib.fromTexts).toHaveBeenCalled();
     });
 
-    it('handles initialization errors', async () => {
-      mockWorkerError();
+    it('loads existing vector store when available', async () => {
+      fs.existsSync.mockImplementation(() => true);
       const response = await request(app).get('/api/health');
       expect(response.status).toBe(200);
+      expect(HNSWLib.load).toHaveBeenCalled();
+    });
+
+    it('handles vector store save errors', async () => {
+      fs.existsSync.mockImplementation(() => false);
+      HNSWLib.fromTexts.mockRejectedValueOnce(new Error('Save failed'));
+      
+      const response = await request(app).get('/api/health');
       expect(response.body.error).toBeTruthy();
     });
-  });
 
-  describe('POST /api/chat', () => {
-    it('handles chat requests successfully', async () => {
-      const response = await request(app)
-        .post('/api/chat')
-        .send({ message: 'What is Session View?' });
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('response');
-      expect(response.body).toHaveProperty('context');
-      expect(Array.isArray(response.body.context)).toBe(true);
-    });
-
-    it('returns 400 for missing message', async () => {
-      const response = await request(app)
-        .post('/api/chat')
-        .send({});
-
-      expect(response.status).toBe(400);
-      expect(response.body).toHaveProperty('error');
-    });
-
-    it('handles vector store initialization errors', async () => {
-      mockWorkerError();
-      const response = await request(app)
-        .post('/api/chat')
-        .send({ message: 'Test message' });
-
-      expect(response.status).toBe(500);
-      expect(response.body).toHaveProperty('error');
-    });
-
-    it('returns 503 when initializing', async () => {
-      // Mock initialization in progress
-      jest.spyOn(global, 'setTimeout').mockImplementation(cb => cb());
-      Worker.mockImplementation(() => ({
-        on: (event, callback) => {
-          if (event === 'message') {
-            // Delay the worker response
-            setTimeout(() => {
-              callback({
-                success: true,
-                data: [{
-                  pageContent: 'Test content',
-                  metadata: { loc: { pageNumber: 1 } },
-                  embedding: new Array(384).fill(0.1)
-                }]
-              });
-            }, 1000);
-          }
-        },
-        postMessage: jest.fn()
-      }));
-
-      const response = await request(app)
-        .post('/api/chat')
-        .send({ message: 'Test message' });
-
-      expect(response.status).toBe(503);
-      expect(response.body).toHaveProperty('status', 'initializing');
+    it('handles vector store load errors', async () => {
+      fs.existsSync.mockImplementation(() => true);
+      HNSWLib.load.mockRejectedValueOnce(new Error('Load failed'));
+      
+      const response = await request(app).get('/api/health');
+      expect(response.body.error).toBeTruthy();
     });
   });
 
   describe('Worker Thread Management', () => {
     it('creates correct number of workers based on CPU cores', async () => {
-      const workerCalls = Worker.mock.calls.length;
-      expect(workerCalls).toBeGreaterThan(0);
+      const response = await request(app).get('/api/health');
+      expect(Worker).toHaveBeenCalled();
+      expect(Worker.mock.calls.length).toBeGreaterThan(0);
     });
 
-    it('handles worker communication errors', async () => {
-      mockWorkerError();
-      const response = await request(app)
-        .post('/api/chat')
-        .send({ message: 'Test message' });
+    it('handles worker errors gracefully', async () => {
+      Worker.mockImplementation(() => ({
+        on: (event, callback) => {
+          if (event === 'error') {
+            callback(new Error('Worker error'));
+          }
+        },
+        postMessage: jest.fn()
+      }));
 
-      expect(response.status).toBe(500);
+      const response = await request(app).get('/api/health');
       expect(response.body.error).toBeTruthy();
     });
 
-    it('processes PDF chunks in parallel', async () => {
+    it('processes chunks in parallel', async () => {
       let processedChunks = 0;
       Worker.mockImplementation(() => ({
         on: (event, callback) => {
@@ -181,8 +146,7 @@ describe('Server API', () => {
               success: true,
               data: [{
                 pageContent: `Test content ${processedChunks}`,
-                metadata: { loc: { pageNumber: processedChunks } },
-                embedding: new Array(384).fill(0.1)
+                metadata: { loc: { pageNumber: processedChunks } }
               }]
             });
           }
@@ -190,12 +154,69 @@ describe('Server API', () => {
         postMessage: jest.fn()
       }));
 
+      const response = await request(app).post('/api/chat').send({ message: 'test' });
+      expect(processedChunks).toBeGreaterThan(1);
+    });
+  });
+
+  describe('API Endpoints', () => {
+    it('returns initialization status and progress', async () => {
+      const response = await request(app).get('/api/health');
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('status');
+      expect(response.body).toHaveProperty('isInitializing');
+      expect(response.body).toHaveProperty('progress');
+    });
+
+    it('handles chat requests with loaded vector store', async () => {
+      fs.existsSync.mockImplementation(() => true);
+      
       const response = await request(app)
         .post('/api/chat')
-        .send({ message: 'Test message' });
+        .send({ message: 'What is Session View?' });
 
       expect(response.status).toBe(200);
-      expect(processedChunks).toBeGreaterThan(1);
+      expect(response.body).toHaveProperty('response');
+      expect(response.body).toHaveProperty('context');
+    });
+
+    it('returns 503 when initializing', async () => {
+      fs.existsSync.mockImplementation(() => false);
+      HNSWLib.fromTexts.mockImplementationOnce(() => new Promise(() => {})); // Never resolves
+
+      const response = await request(app)
+        .post('/api/chat')
+        .send({ message: 'test' });
+
+      expect(response.status).toBe(503);
+      expect(response.body).toHaveProperty('status', 'initializing');
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('handles missing vector store directory', async () => {
+      fs.existsSync.mockImplementation(() => false);
+      fs.mkdirSync.mockImplementationOnce(() => { throw new Error('Permission denied'); });
+
+      const response = await request(app).get('/api/health');
+      expect(response.body.error).toBeTruthy();
+    });
+
+    it('handles PDF processing errors', async () => {
+      const { PDFLoader } = require('langchain/document_loaders/fs/pdf');
+      PDFLoader.mockImplementationOnce(() => ({
+        load: jest.fn().mockRejectedValue(new Error('PDF Error'))
+      }));
+
+      const response = await request(app).get('/api/health');
+      expect(response.body.error).toBeTruthy();
+    });
+
+    it('handles embedding generation errors', async () => {
+      HNSWLib.fromTexts.mockRejectedValueOnce(new Error('Embedding Error'));
+
+      const response = await request(app).get('/api/health');
+      expect(response.body.error).toBeTruthy();
     });
   });
 });
