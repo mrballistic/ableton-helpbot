@@ -1,6 +1,6 @@
 Ableton Chatbot brief
 
-The application is designed as a chatbot that interrogates a folder filled with pdfs for it's source materials.
+The application is designed as a chatbot that interrogates a folder filled with pdfs for its source materials.
 
 It will:
 * run locally, using a local LLM
