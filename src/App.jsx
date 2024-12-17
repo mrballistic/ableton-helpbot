@@ -302,7 +302,7 @@ function App() {
               Initializing Documentation Assistant
             </Typography>
             <Typography id="initialization-modal-description" sx={{ mt: 2, mb: 3 }}>
-              Please wait while we process the documentation and create embeddings. This may take a few minutes...
+              Please wait while we process the documentation and create embeddings. This may take awhile...
             </Typography>
             <LinearProgress aria-label="Initialization progress" />
           </Box>
