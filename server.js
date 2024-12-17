@@ -3,6 +3,7 @@ import cors from 'cors';
 import { Worker } from 'worker_threads';
 import { Ollama } from "@langchain/community/llms/ollama";
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
+import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { cpus } from 'os';
@@ -22,6 +23,12 @@ let initializationError = null;
 const model = new Ollama({
   baseUrl: "http://localhost:11434",
   model: "mistral",
+});
+
+const embeddings = new OllamaEmbeddings({
+  baseUrl: "http://localhost:11434",
+  model: "mistral",
+  maxConcurrency: 5
 });
 
 // Function to create a worker for processing PDF chunks
@@ -110,24 +117,11 @@ async function initializeVectorStore() {
 
     // Create vector store from processed documents
     console.log('Creating vector store from processed documents...');
-    vectorStore = new HNSWLib({
-      space: 'cosine',
-      numDimensions: processedDocs[0].embedding.length
-    });
-
-    // Add vectors in batches to avoid memory issues
-    const batchSize = 500;
-    for (let i = 0; i < processedDocs.length; i += batchSize) {
-      const batch = processedDocs.slice(i, i + batchSize);
-      await vectorStore.addVectors(
-        batch.map(doc => doc.embedding),
-        batch.map(doc => ({
-          pageContent: doc.pageContent,
-          metadata: doc.metadata
-        }))
-      );
-      console.log(`Added batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(processedDocs.length / batchSize)} to vector store`);
-    }
+    vectorStore = await HNSWLib.fromTexts(
+      processedDocs.map(doc => doc.pageContent),
+      processedDocs.map(doc => doc.metadata),
+      embeddings
+    );
 
     console.log('Vector store initialized successfully');
     initializationError = null;
