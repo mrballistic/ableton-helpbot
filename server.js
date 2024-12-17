@@ -61,7 +61,6 @@ async function loadExistingVectorStore() {
   return null;
 }
 
-// Function to create a worker for processing PDF chunks
 function createWorker(pdfPath, startPage, endPage) {
   return new Promise((resolve, reject) => {
     const worker = new Worker('./worker.js', {
@@ -106,7 +105,6 @@ async function initializeVectorStore() {
   isInitializing = true;
 
   try {
-    // First try to load existing vector store
     console.log('Checking for existing vector store...');
     initializationProgress = 'Checking for existing vector store...';
     
@@ -125,7 +123,6 @@ async function initializeVectorStore() {
       'live12-manual-en.pdf'
     ];
 
-    // Process each PDF in parallel with multiple workers per PDF
     const numCPUs = cpus().length;
     const workersPerPDF = Math.max(2, Math.floor(numCPUs / pdfFiles.length));
     console.log(`Using ${workersPerPDF} workers per PDF on ${numCPUs} CPU cores`);
@@ -136,13 +133,11 @@ async function initializeVectorStore() {
       initializationProgress = `Processing ${pdfFile}...`;
 
       try {
-        // Get total pages in PDF
         const { PDFLoader } = await import("langchain/document_loaders/fs/pdf");
         const loader = new PDFLoader(pdfPath);
         const docs = await loader.load();
         const totalPages = docs.length;
         
-        // Create workers for page ranges
         const pagesPerWorker = Math.ceil(totalPages / workersPerPDF);
         const workerPromises = [];
 
@@ -156,7 +151,6 @@ async function initializeVectorStore() {
           }
         }
 
-        // Wait for all workers to complete and combine their results
         const workerResults = await Promise.all(workerPromises);
         const flatResults = workerResults.flat();
         console.log(`Processed ${flatResults.length} chunks from ${pdfFile}`);
@@ -167,7 +161,6 @@ async function initializeVectorStore() {
       }
     }));
 
-    // Combine all processed chunks
     const processedDocs = allProcessedChunks.flat();
     console.log(`Total processed chunks across all PDFs: ${processedDocs.length}`);
 
@@ -175,11 +168,9 @@ async function initializeVectorStore() {
       throw new Error('No documents were processed successfully');
     }
 
-    // Create vector store from processed documents in batches
     console.log('Creating vector store from processed documents...');
     initializationProgress = 'Generating embeddings...';
 
-    // Process in batches of 100 documents
     const BATCH_SIZE = 100;
     let currentVectorStore = null;
 
@@ -189,17 +180,15 @@ async function initializeVectorStore() {
       async (batch) => {
         console.log(`Processing batch of ${batch.length} documents...`);
         if (!currentVectorStore) {
-          // Create initial vector store
           currentVectorStore = await HNSWLib.fromTexts(
-            batch.map(doc => doc.pageContent),
+            batch.map(doc => doc.pageContent.trim()),
             batch.map(doc => doc.metadata),
             embeddings
           );
         } else {
-          // Add to existing vector store
           await currentVectorStore.addDocuments(
             batch.map(doc => ({
-              pageContent: doc.pageContent,
+              pageContent: doc.pageContent.trim(),
               metadata: doc.metadata
             }))
           );
@@ -215,7 +204,6 @@ async function initializeVectorStore() {
 
     vectorStore = currentVectorStore;
 
-    // Save the vector store
     console.log('Saving vector store...');
     initializationProgress = 'Saving vector store...';
     await vectorStore.save(VECTOR_STORE_PATH);
@@ -236,7 +224,6 @@ async function initializeVectorStore() {
 // Initialize on startup
 initializeVectorStore().catch(console.error);
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: vectorStore ? 'ready' : 'initializing',
@@ -246,7 +233,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API endpoints
 app.post('/api/chat', async (req, res) => {
   try {
     if (!vectorStore) {
@@ -263,7 +249,6 @@ app.post('/api/chat', async (req, res) => {
           details: initializationError.message
         });
       }
-      // Try to initialize if not already done
       await initializeVectorStore();
       if (!vectorStore) {
         return res.status(500).json({ error: 'Failed to initialize vector store' });
@@ -277,14 +262,12 @@ app.post('/api/chat', async (req, res) => {
 
     console.log('Received question:', message);
     
-    // Get relevant context
     console.log('Searching for relevant context...');
     const results = await vectorStore.similaritySearch(message, 5);
     console.log(`Found ${results.length} relevant chunks`);
     
-    const context = results.map(doc => doc.pageContent).join('\n\n');
+    const context = results.map(doc => doc.pageContent.trim()).join('\n\n');
     
-    // Generate response using Ollama
     console.log('Generating response with Ollama...');
     const prompt = `You are an Ableton Live expert assistant. Use the following context from the Ableton documentation to answer the user's question. Only use information from the provided context, and if you cannot find relevant information, say so.
 
@@ -293,15 +276,15 @@ ${context}
 
 User Question: ${message}
 
-Answer: `;
+Answer:`.trim();
 
     const response = await model.call(prompt);
     console.log('Response generated successfully');
     
     res.json({ 
-      response,
+      response: response.trim(),
       context: results.map(doc => ({
-        content: doc.pageContent,
+        content: doc.pageContent.trim(),
         metadata: doc.metadata
       }))
     });
