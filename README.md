@@ -11,6 +11,8 @@ A RAG-based chatbot that provides answers from Ableton Live's documentation usin
 - Accessibility support
 - Real-time initialization progress
 - Memory-efficient processing
+- Markdown rendering with code highlighting
+- Source context display
 
 ## Prerequisites
 
@@ -63,6 +65,7 @@ This will:
 - Real-time initialization progress
 - Accessibility features
 - Responsive design
+- Markdown rendering with syntax highlighting
 
 ### Backend
 - Express server
@@ -112,14 +115,48 @@ npm run test:coverage
 
 ### Project Structure
 ```
-├── src/                  # Frontend source
-│   ├── App.jsx          # Main React component
-│   └── App.test.jsx     # Frontend tests
-├── server.js            # Express backend
-├── worker.js            # PDF processing worker
-├── pdf/                 # PDF documentation
-└── vector_store/        # Persistent vector storage
+├── src/                      # Frontend source
+│   ├── components/           # React components
+│   │   ├── ChatBubble.jsx   # Message bubble component
+│   │   ├── ChatInterface.jsx # Main chat interface
+│   │   └── InitializationModal.jsx # Loading modal
+│   ├── helpers/             # Helper components
+│   │   └── VisuallyHidden.jsx # Accessibility helper
+│   ├── App.jsx             # Main React component
+│   ├── App.test.jsx        # Frontend tests
+│   └── index.css           # Global styles
+├── server.js               # Express backend
+├── worker.js              # PDF processing worker
+├── pdf/                   # PDF documentation
+└── vector_store/          # Persistent vector storage
+    ├── args.json          # Vector store arguments
+    ├── docstore.json      # Document metadata
+    └── hnswlib.index      # Vector index
 ```
+
+### Components
+
+#### ChatBubble
+- Renders user and assistant messages
+- Markdown rendering with syntax highlighting
+- Source context display
+- Accessibility support
+
+#### ChatInterface
+- Main chat interface
+- Message input handling
+- Message history management
+- Loading states
+
+#### InitializationModal
+- Displays initialization progress
+- Real-time status updates
+- Progress tracking
+
+#### VisuallyHidden
+- Accessibility helper component
+- Screen reader support
+- ARIA announcements
 
 ### Environment Variables
 No environment variables needed as the application runs locally.
@@ -139,6 +176,7 @@ No environment variables needed as the application runs locally.
 - Progress announcements
 - Color contrast compliance
 - Focus management
+- Hidden helper elements
 
 ## Error Handling
 
@@ -147,6 +185,7 @@ No environment variables needed as the application runs locally.
 - Vector store failures
 - Network problems
 - Initialization errors
+- Markdown parsing errors
 
 ## Contributing
 
