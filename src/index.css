@@ -22,3 +22,21 @@ body {
 * {
   box-sizing: border-box;
 }
+
+
+a:link, a:visited, a:hover, a:active {
+
+  color: #333;
+
+}
+
+
+@media (prefers-color-scheme: dark) {
+
+  a:link, a:visited, a:hover, a:active {
+
+    color: #ccc;
+  
+  }
+
+}
