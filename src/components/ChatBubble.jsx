@@ -15,7 +15,7 @@ const md = MarkdownIt({
   breaks: false,
   linkify: true,
   typographer: true,
-  maxNesting: 100
+  maxNesting: 100,
 });
 
 // Enable additional features
@@ -163,7 +163,7 @@ const ChatBubble = ({ message, isUser, context }) => {
         ) : (
           <Box 
             className="markdown"
-            dangerouslySetInnerHTML={{ __html: md.render(message) }}
+            dangerouslySetInnerHTML={{ __html: md.renderInline(message) }}
           />
         )}
       </Box>
