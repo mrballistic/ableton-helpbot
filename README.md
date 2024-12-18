@@ -17,8 +17,14 @@ A RAG-based chatbot that provides answers from Ableton Live's documentation usin
 ## Prerequisites
 
 - Node.js 18+
+- Python 3.8+ (for PDF processing)
 - Ollama installed (`brew install ollama` on macOS)
 - The Mistral model pulled (`ollama pull mistral`)
+
+### Python Dependencies
+```bash
+pip install pypdf langchain sentence-transformers numpy
+```
 
 ## Installation
 
@@ -73,6 +79,7 @@ This will:
 - Vector store management
 - LLM integration
 - Error handling
+- Python bridge for PDF processing
 
 ### Vector Store
 - HNSWLib for efficient similarity search
@@ -85,11 +92,13 @@ This will:
    - Parallel processing with worker threads
    - Page-range distribution
    - Progress tracking
+   - Python-based text extraction
 
 2. Text Processing
    - Chunk generation
    - Metadata preservation
    - Batch processing
+   - Sentence transformers for embeddings
 
 3. Vector Store
    - Embedding generation
@@ -109,6 +118,12 @@ npm run test:frontend
 # Run backend tests
 npm run test:backend
 
+# Run specific component tests
+npm test ChatBubble.test.jsx
+npm test ChatInterface.test.jsx
+npm test InitializationModal.test.jsx
+npm test VisuallyHidden.test.jsx
+
 # Generate coverage report
 npm run test:coverage
 ```
@@ -123,15 +138,22 @@ npm run test:coverage
 │   ├── helpers/             # Helper components
 │   │   └── VisuallyHidden.jsx # Accessibility helper
 │   ├── App.jsx             # Main React component
-│   ├── App.test.jsx        # Frontend tests
 │   └── index.css           # Global styles
-├── server.js               # Express backend
-├── worker.js              # PDF processing worker
-├── pdf/                   # PDF documentation
-└── vector_store/          # Persistent vector storage
-    ├── args.json          # Vector store arguments
-    ├── docstore.json      # Document metadata
-    └── hnswlib.index      # Vector index
+├── tests/                  # Test files
+│   ├── components/         # Component tests
+│   │   ├── ChatBubble.test.jsx
+│   │   ├── ChatInterface.test.jsx
+│   │   └── InitializationModal.test.jsx
+│   ├── helpers/           # Helper tests
+│   │   └── VisuallyHidden.test.jsx
+│   └── App.test.jsx       # Integration tests
+├── server.js              # Express backend
+├── worker.js             # PDF processing worker
+├── pdf/                  # PDF documentation
+└── vector_store/         # Persistent vector storage
+    ├── args.json         # Vector store arguments
+    ├── docstore.json     # Document metadata
+    └── hnswlib.index     # Vector index
 ```
 
 ### Components
@@ -157,6 +179,14 @@ npm run test:coverage
 - Accessibility helper component
 - Screen reader support
 - ARIA announcements
+
+### Testing Structure
+- Unit tests for each component
+- Integration tests for full flows
+- Accessibility testing
+- Error handling coverage
+- Loading state verification
+- Component interaction tests
 
 ### Environment Variables
 No environment variables needed as the application runs locally.
@@ -186,6 +216,7 @@ No environment variables needed as the application runs locally.
 - Network problems
 - Initialization errors
 - Markdown parsing errors
+- Python bridge errors
 
 ## Contributing
 
