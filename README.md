@@ -30,7 +30,7 @@ pip install pypdf langchain sentence-transformers numpy
 
 1. Clone the repository:
 ```bash
-git clone [repository-url]
+git clone https://github.com/mrballistic/ableton-helpbot.git
 cd ableton-rag
 ```
 
