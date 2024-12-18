@@ -41,12 +41,17 @@ const embeddings = new OllamaEmbeddings({
 });
 
 async function loadExistingVectorStore() {
-  const indexPath = join(VECTOR_STORE_PATH, 'index');
+  const indexPath = join(VECTOR_STORE_PATH, 'hnswlib.index');
   const docStorePath = join(VECTOR_STORE_PATH, 'docstore.json');
   
+  console.log('Checking for vector store files:');
+  console.log(`- Index path: ${indexPath}`);
+  console.log(`- Docstore path: ${docStorePath}`);
+  
   if (existsSync(indexPath) && existsSync(docStorePath)) {
-    console.log('Loading existing vector store...');
+    console.log('Found existing vector store files');
     try {
+      console.log('Loading vector store...');
       const loadedVectorStore = await HNSWLib.load(
         VECTOR_STORE_PATH,
         embeddings
@@ -57,8 +62,12 @@ async function loadExistingVectorStore() {
       console.error('Error loading vector store:', error);
       return null;
     }
+  } else {
+    console.log('Missing vector store files:');
+    if (!existsSync(indexPath)) console.log('- Missing index file');
+    if (!existsSync(docStorePath)) console.log('- Missing docstore file');
+    return null;
   }
-  return null;
 }
 
 function createWorker(pdfPath, startPage, endPage) {
@@ -105,18 +114,20 @@ async function initializeVectorStore() {
   isInitializing = true;
 
   try {
+    // First try to load existing vector store
     console.log('Checking for existing vector store...');
     initializationProgress = 'Checking for existing vector store...';
     
     const existingStore = await loadExistingVectorStore();
     if (existingStore) {
-      vectorStore = existingStore;
       console.log('Using existing vector store');
       initializationProgress = 'Loaded existing vector store';
+      vectorStore = existingStore;
       return;
     }
 
-    console.log('Starting parallel vector store initialization...');
+    // Only proceed with PDF processing if no existing store was found
+    console.log('No existing vector store found, starting initialization...');
     initializationProgress = 'Starting initialization...';
     
     const pdfFiles = [
@@ -269,14 +280,14 @@ app.post('/api/chat', async (req, res) => {
     const context = results.map(doc => doc.pageContent.trim()).join('\n\n');
     
     console.log('Generating response with Ollama...');
-    const prompt = `You are an Ableton Live expert assistant. Use the following context from the Ableton documentation to answer the user's question. Only use information from the provided context, and if you cannot find relevant information, say so.
+    const prompt = `You are an Ableton Live expert assistant. Use the following context from the Ableton documentation to answer the user's question. Format your response using markdown with appropriate headings, lists, bold text, and code blocks where relevant. Only use information from the provided context, and if you cannot find relevant information, say so.
 
 Context:
 ${context}
 
 User Question: ${message}
 
-Answer:`.trim();
+Answer (use markdown formatting):`.trim();
 
     const response = await model.call(prompt);
     console.log('Response generated successfully');
