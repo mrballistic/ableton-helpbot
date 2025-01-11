@@ -31,6 +31,7 @@ build/
 # Application data
 vector_store/
 .ollama/
+/src/ollama/*
 
 # Environment variables
 .env
