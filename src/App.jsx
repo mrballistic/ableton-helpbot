@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+let ipcRenderer;
+if (window.electron) {
+  ipcRenderer = window.electron.ipcRenderer;
+}
 import { 
   Container, 
   Stack, 
@@ -72,31 +76,40 @@ const App = () => {
     scrollToBottom();
   }, [messages]);
   
-  // Check health endpoint periodically
+  // Initialize and listen for progress updates
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/health');
-        const data = await response.json();
-        setIsInitializing(data.isInitializing);
-        setInitProgress(data.progress || '');
-        if (data.error) {
-          setError(data.error);
+        const health = await ipcRenderer.invoke('health-check');
+        setIsInitializing(health.isInitializing);
+        setInitProgress(health.progress || '');
+        if (health.error) {
+          setError(health.error);
         }
       } catch (err) {
         console.error('Error checking health:', err);
-        setError('Failed to connect to server');
+        setError('Failed to initialize');
       }
     };
+
+    // Listen for progress updates
+    const progressHandler = (_, progress) => {
+      setInitProgress(progress);
+    };
     
-    // Check immediately
+    ipcRenderer.on('initialization-progress', progressHandler);
+    
+    // Initial health check and start initialization
     checkHealth();
-    
-    // Then check every 5 seconds
-    const interval = setInterval(checkHealth, 5000);
+    ipcRenderer.invoke('initialize').catch(err => {
+      console.error('Error during initialization:', err);
+      setError('Failed to initialize');
+    });
     
     // Cleanup
-    return () => clearInterval(interval);
+    return () => {
+      ipcRenderer.removeListener('initialization-progress', progressHandler);
+    };
   }, []);
   
   const handleSend = async () => {
@@ -117,19 +130,7 @@ const App = () => {
     setError(null);
     
     try {
-      const response = await fetch('http://localhost:3000/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-      
-      const data = await response.json();
+      const data = await ipcRenderer.invoke('chat', userMessage);
       setMessages([
         ...newMessages,
         { 
