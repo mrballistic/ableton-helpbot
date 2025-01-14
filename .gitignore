@@ -34,6 +34,7 @@ dist-ssr/
 vector_store/
 .ollama/
 /src/ollama/*
+*.zip
 
 # Environment variables
 .env
