@@ -34,49 +34,44 @@ class OllamaManager {
 
   async downloadOllama() {
     console.log('Downloading Ollama...');
-    const ollamaUrl = 'https://ollama.ai/download/Ollama-darwin.zip';
+    const ollamaUrl = 'https://github.com/ollama/ollama/releases/latest/download/ollama-darwin';
     
-    // Download the zip file to a temporary location
-    const tempZipPath = path.join(this.ollamaPath, 'temp.zip');
-    const writeStream = fs.createWriteStream(tempZipPath);
+    // Download the binary directly
+    const writeStream = fs.createWriteStream(this.binaryPath);
     
     await new Promise((resolve, reject) => {
-      https.get(ollamaUrl, (response) => {
-        response.pipe(writeStream);
-        writeStream.on('finish', resolve);
-        writeStream.on('error', reject);
+      const options = {
+        rejectUnauthorized: true,
+        headers: {
+          'User-Agent': 'Ableton AI Chatbot'
+        }
+      };
+      
+      https.get(ollamaUrl, options, (response) => {
+        if (response.statusCode === 302 || response.statusCode === 301) {
+          // Handle redirect
+          https.get(response.headers.location, options, (redirectResponse) => {
+            redirectResponse.pipe(writeStream);
+            writeStream.on('finish', resolve);
+            writeStream.on('error', reject);
+          }).on('error', reject);
+        } else {
+          response.pipe(writeStream);
+          writeStream.on('finish', resolve);
+          writeStream.on('error', reject);
+        }
       }).on('error', reject);
     });
 
-    // Extract the binary
-    const unzip = spawn('unzip', ['-p', tempZipPath, 'Ollama.app/Contents/Resources/ollama'], {
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-
-    // Write the binary to our destination
-    const binaryStream = fs.createWriteStream(this.binaryPath);
-    unzip.stdout.pipe(binaryStream);
-
     await new Promise((resolve, reject) => {
-      binaryStream.on('finish', () => {
-        // Clean up temp file
-        fs.unlinkSync(tempZipPath);
-        console.log('Ollama binary downloaded and extracted successfully');
+      writeStream.on('finish', () => {
+        console.log('Ollama binary downloaded successfully');
         resolve();
       });
 
-      binaryStream.on('error', (err) => {
+      writeStream.on('error', (err) => {
         console.error('Error writing Ollama binary:', err);
         reject(err);
-      });
-
-      unzip.on('error', (err) => {
-        console.error('Error extracting Ollama:', err);
-        reject(err);
-      });
-
-      unzip.stderr.on('data', (data) => {
-        console.log('Unzip output:', data.toString());
       });
     });
   }
