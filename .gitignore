@@ -9,8 +9,6 @@ lerna-debug.log*
 
 # Dependencies
 node_modules
-dist
-dist-ssr
 *.local
 
 # Editor directories and files
@@ -24,9 +22,13 @@ dist-ssr
 *.sln
 *.sw?
 
-# Electron build
+# Build outputs
 release/
 build/
+.vite/
+out/
+dist/
+dist-ssr/
 
 # Application data
 vector_store/

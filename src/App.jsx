@@ -78,38 +78,43 @@ const App = () => {
   
   // Initialize and listen for progress updates
   useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const health = await ipcRenderer.invoke('health-check');
-        setIsInitializing(health.isInitializing);
-        setInitProgress(health.progress || '');
-        if (health.error) {
-          setError(health.error);
+    if (ipcRenderer) {
+      const checkHealth = async () => {
+        try {
+          const health = await ipcRenderer.invoke('health-check');
+          setIsInitializing(health.isInitializing);
+          setInitProgress(health.progress || '');
+          if (health.error) {
+            setError(health.error);
+          }
+        } catch (err) {
+          console.error('Error checking health:', err);
+          setError('Failed to initialize');
         }
-      } catch (err) {
-        console.error('Error checking health:', err);
-        setError('Failed to initialize');
-      }
-    };
+      };
 
-    // Listen for progress updates
-    const progressHandler = (_, progress) => {
-      setInitProgress(progress);
-    };
-    
-    ipcRenderer.on('initialization-progress', progressHandler);
-    
-    // Initial health check and start initialization
-    checkHealth();
-    ipcRenderer.invoke('initialize').catch(err => {
-      console.error('Error during initialization:', err);
-      setError('Failed to initialize');
-    });
-    
-    // Cleanup
-    return () => {
-      ipcRenderer.removeListener('initialization-progress', progressHandler);
-    };
+      // Listen for progress updates
+      const progressHandler = (_, progress) => {
+        setInitProgress(progress);
+      };
+      
+      ipcRenderer.on('initialization-progress', progressHandler);
+      
+      // Initial health check and start initialization
+      checkHealth();
+      ipcRenderer.invoke('initialize').catch(err => {
+        console.error('Error during initialization:', err);
+        setError('Failed to initialize');
+      });
+      
+      // Cleanup
+      return () => {
+        ipcRenderer.removeListener('initialization-progress', progressHandler);
+      };
+    } else {
+      // Dev mode without Electron
+      setIsInitializing(false);
+    }
   }, []);
   
   const handleSend = async () => {
@@ -130,15 +135,26 @@ const App = () => {
     setError(null);
     
     try {
-      const data = await ipcRenderer.invoke('chat', userMessage);
-      setMessages([
-        ...newMessages,
-        { 
-          text: data.response, 
-          sender: 'bot',
-          context: data.context 
-        }
-      ]);
+      if (ipcRenderer) {
+        const data = await ipcRenderer.invoke('chat', userMessage);
+        setMessages([
+          ...newMessages,
+          { 
+            text: data.response, 
+            sender: 'bot',
+            context: data.context 
+          }
+        ]);
+      } else {
+        // Dev mode mock response
+        setMessages([
+          ...newMessages,
+          { 
+            text: "This is a development mode response. Electron IPC is not available.", 
+            sender: 'bot'
+          }
+        ]);
+      }
     } catch (err) {
       console.error('Error generating response:', err);
       setError('Failed to generate response. Please ensure the server is running.');

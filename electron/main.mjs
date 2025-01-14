@@ -1,6 +1,10 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
-const ollamaManager = require('./ollama.cjs');
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import ollamaManager from './ollama.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const isDev = process.env.NODE_ENV === 'development';
 let mainWindow = null;
@@ -18,7 +22,9 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.cjs')
+      preload: isDev 
+        ? MAIN_WINDOW_PRELOAD_VITE_ENTRY 
+        : path.join(__dirname, '../.vite/build/preload.cjs')
     }
   });
 
@@ -29,7 +35,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../.vite/renderer/index.html'));
   }
 
   // Set up IPC handlers
@@ -133,6 +139,9 @@ app.whenReady().then(async () => {
     createWindow();
   } catch (error) {
     console.error('Failed to start Ollama:', error);
+    await dialog.showErrorBox('Startup Error', 
+      `Failed to start application: ${error.message}\n\nCheck the logs for more details.`
+    );
     app.quit();
   }
 

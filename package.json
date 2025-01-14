@@ -1,20 +1,22 @@
 {
-  "name": "ableton-rag",
+  "name": "Ableton AI Chatbot",
+  "type": "module",
   "private": true,
   "version": "0.0.2",
   "description": "An AI-powered assistant for Ableton Live documentation",
   "author": {
     "name": "Todd Greco",
-    "email": "todd.greco@slalom.com"
+    "email": "mrballistic@gmail.com"
   },
-  "type": "module",
-  "main": "electron/index.cjs",
+  "main": ".vite/build/main.mjs",
   "scripts": {
     "dev": "vite",
     "server": "node server.js",
-    "start": "concurrently \"npm run dev\" \"npm run server\"",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "vite build && electron-builder",
+    "start": "electron-forge start",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron-forge start\"",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -32,6 +34,7 @@
     "@mui/material": "^5.15.2",
     "chromadb": "^1.7.3",
     "cors": "^2.8.5",
+    "electron-squirrel-startup": "^1.0.1",
     "express": "^4.18.2",
     "follow-redirects": "^1.15.9",
     "langchain": "^0.0.213",
@@ -46,6 +49,17 @@
     "@babel/plugin-transform-modules-commonjs": "^7.26.3",
     "@babel/preset-env": "^7.26.0",
     "@babel/register": "^7.25.9",
+    "@babel/traverse": "^7.26.5",
+    "@electron-forge/cli": "^7.6.0",
+    "@electron-forge/maker-deb": "^7.6.0",
+    "@electron-forge/maker-dmg": "^7.6.0",
+    "@electron-forge/maker-rpm": "^7.6.0",
+    "@electron-forge/maker-squirrel": "^7.6.0",
+    "@electron-forge/maker-zip": "^7.6.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.6.0",
+    "@electron-forge/plugin-fuses": "^7.6.0",
+    "@electron-forge/plugin-vite": "^7.6.0",
+    "@electron/fuses": "^1.8.0",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.5.1",
@@ -54,8 +68,9 @@
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
+    "dotenv": "^16.4.7",
     "electron": "^33.3.1",
-    "electron-builder": "^25.1.8",
+    "electron-installer-dmg": "^5.0.1",
     "eslint": "^8.55.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -82,13 +97,86 @@
     "globals": true,
     "css": true
   },
+  "config": {
+    "forge": {
+      "packagerConfig": {
+        "name": "Ableton AI Chatbot",
+        "executableName": "Ableton AI Chatbot",
+        "asar": true,
+        "icon": "build/logo.icns",
+        "appBundleId": "com.mrballistic.ableton.rag",
+        "osxSign": {
+          "identity": "Developer ID Application: Todd Greco (89YJQ4UB7V)",
+          "hardenedRuntime": true,
+          "entitlements": "build/entitlements.mac.sandbox.plist",
+          "entitlementsInherit": "build/entitlements.mac.sandbox.plist"
+        },
+        "osxNotarize": {
+          "tool": "notarytool",
+          "appleId": "todd@opaque.net",
+          "appleIdPassword": "ypww-xqoh-loec-bswr",
+          "teamId": "89YJQ4UB7V"
+        },
+    "extraResource": [
+      "vector_store"
+    ]
+      },
+      "makers": [
+        {
+          "name": "@electron-forge/maker-dmg",
+          "platforms": [
+            "darwin"
+          ],
+          "config": {
+            "name": "Ableton AI Chatbot",
+            "icon": "build/logo.icns",
+            "overwrite": true,
+            "identity": "Developer ID Application: Todd Greco (89YJQ4UB7V)"
+          }
+        },
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": [
+            "darwin"
+          ]
+        }
+      ],
+      "plugins": [
+        {
+          "name": "@electron-forge/plugin-vite",
+          "config": {
+            "build": [
+              {
+                "entry": "electron/main.mjs",
+                "config": "vite.main.config.js"
+              },
+              {
+                "entry": "electron/preload.cjs",
+                "config": "vite.preload.config.js"
+              }
+            ],
+            "renderer": [
+              {
+                "name": "main_window",
+                "config": "vite.renderer.config.js"
+              }
+            ]
+          }
+        },
+        {
+          "name": "@electron-forge/plugin-auto-unpack-natives",
+          "config": {}
+        }
+      ]
+    }
+  },
   "build": {
-    "appId": "com.ableton.rag",
-    "productName": "Ableton RAG",
+    "appId": "com.mrballistic.ableton.rag",
+    "productName": "Ableton AI Chatbot",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": "dmg",
-      "icon": "build/icon.png",
+      "icon": "build/logo.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.sandbox.plist",
@@ -98,7 +186,6 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "src/ollama/**/*",
       "vector_store/**/*"
     ],
     "directories": {
@@ -107,14 +194,11 @@
     },
     "extraResources": [
       {
-        "from": "src/ollama",
-        "to": "ollama",
-        "filter": ["**/*"]
-      },
-      {
         "from": "vector_store",
         "to": "vector_store",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ]
   }

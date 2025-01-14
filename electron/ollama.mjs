@@ -1,8 +1,13 @@
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-const { https } = require('follow-redirects');
-const { app } = require('electron');
+import { spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+import { https } from 'follow-redirects';
+import { app } from 'electron';
+import { fileURLToPath } from 'url';
+import net from 'net';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 class OllamaManager {
   constructor() {
@@ -28,28 +33,39 @@ class OllamaManager {
   }
 
   async downloadOllama() {
-    console.log('Extracting Ollama from local zip...');
-    const isDev = process.env.NODE_ENV === 'development';
-    const zipPath = isDev 
-      ? path.join(__dirname, '../src/ollama/Ollama-darwin.zip')
-      : path.join(process.resourcesPath, 'ollama/Ollama-darwin.zip');
+    console.log('Downloading Ollama...');
+    const ollamaUrl = 'https://ollama.ai/download/Ollama-darwin.zip';
     
-    // Extract the binary from the zip
-    const unzip = spawn('unzip', ['-p', zipPath, 'Ollama.app/Contents/Resources/ollama'], {
+    // Download the zip file to a temporary location
+    const tempZipPath = path.join(this.ollamaPath, 'temp.zip');
+    const writeStream = fs.createWriteStream(tempZipPath);
+    
+    await new Promise((resolve, reject) => {
+      https.get(ollamaUrl, (response) => {
+        response.pipe(writeStream);
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+      }).on('error', reject);
+    });
+
+    // Extract the binary
+    const unzip = spawn('unzip', ['-p', tempZipPath, 'Ollama.app/Contents/Resources/ollama'], {
       stdio: ['ignore', 'pipe', 'pipe']
     });
 
     // Write the binary to our destination
-    const writeStream = fs.createWriteStream(this.binaryPath);
-    unzip.stdout.pipe(writeStream);
+    const binaryStream = fs.createWriteStream(this.binaryPath);
+    unzip.stdout.pipe(binaryStream);
 
-    return new Promise((resolve, reject) => {
-      writeStream.on('finish', () => {
-        console.log('Ollama binary extracted successfully');
+    await new Promise((resolve, reject) => {
+      binaryStream.on('finish', () => {
+        // Clean up temp file
+        fs.unlinkSync(tempZipPath);
+        console.log('Ollama binary downloaded and extracted successfully');
         resolve();
       });
 
-      writeStream.on('error', (err) => {
+      binaryStream.on('error', (err) => {
         console.error('Error writing Ollama binary:', err);
         reject(err);
       });
@@ -96,7 +112,6 @@ class OllamaManager {
 
   async checkOllamaRunning() {
     return new Promise((resolve) => {
-      const net = require('net');
       const client = new net.Socket();
       
       client.on('connect', () => {
@@ -134,8 +149,14 @@ class OllamaManager {
 
       const isDev = process.env.NODE_ENV === 'development';
       const vectorStorePath = isDev
-        ? path.join(__dirname, '../vector_store')
+        ? path.join(__dirname, '..', 'vector_store')
         : path.join(process.resourcesPath, 'vector_store');
+      
+      console.log('Vector store path:', vectorStorePath);
+      if (!fs.existsSync(vectorStorePath)) {
+        console.error('Vector store not found at:', vectorStorePath);
+        throw new Error(`Vector store not found at: ${vectorStorePath}`);
+      }
 
       const env = {
         ...process.env,
@@ -189,9 +210,12 @@ class OllamaManager {
   }
 
   stop() {
-    if (this.ollamaProcess) {
+    if (this.ollamaProcess && typeof this.ollamaProcess !== 'boolean') {
       console.log('Stopping Ollama process...');
       this.ollamaProcess.kill();
+      this.ollamaProcess = null;
+    } else {
+      console.log('No Ollama process to stop (externally managed)');
       this.ollamaProcess = null;
     }
   }
@@ -203,4 +227,4 @@ class OllamaManager {
   }
 }
 
-module.exports = new OllamaManager();
+export default new OllamaManager();
