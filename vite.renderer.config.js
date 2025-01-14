@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   build: {
-    outDir: 'renderer',
+    outDir: '.vite/renderer',
     assetsDir: 'assets',
     rollupOptions: {
       external: ['electron'],

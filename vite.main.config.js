@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   build: {
-    outDir: 'electron',
+    outDir: '.vite/build',
     rollupOptions: {
       external: ['electron']
     },
@@ -11,6 +11,6 @@ export default defineConfig({
       formats: ['cjs'],
       fileName: () => 'main.cjs'
     },
-    emptyOutDir: false
+    emptyOutDir: true
   }
 });
