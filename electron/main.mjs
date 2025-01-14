@@ -24,7 +24,7 @@ function createWindow() {
       contextIsolation: true,
       preload: isDev 
         ? MAIN_WINDOW_PRELOAD_VITE_ENTRY 
-        : path.join(__dirname, '../.vite/build/preload.cjs')
+        : path.join(__dirname, 'preload.cjs')
     }
   });
 
@@ -35,7 +35,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../.vite/renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
   // Set up IPC handlers

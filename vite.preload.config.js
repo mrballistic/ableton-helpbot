@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   build: {
-    outDir: '.vite/build',
+    outDir: 'electron',
     rollupOptions: {
       external: ['electron']
     },

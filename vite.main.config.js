@@ -2,15 +2,15 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   build: {
+    outDir: 'electron',
     rollupOptions: {
       external: ['electron']
     },
     lib: {
       entry: 'electron/main.mjs',
-      formats: ['es'],
-      fileName: () => 'main.mjs'
+      formats: ['cjs'],
+      fileName: () => 'main.cjs'
     },
-    outDir: '.vite/build',
-    emptyOutDir: true
+    emptyOutDir: false
   }
 });

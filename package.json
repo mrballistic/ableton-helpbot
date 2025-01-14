@@ -8,7 +8,7 @@
     "name": "Todd Greco",
     "email": "mrballistic@gmail.com"
   },
-  "main": ".vite/build/main.mjs",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "server": "node server.js",
