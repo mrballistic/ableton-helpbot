@@ -139,10 +139,14 @@ class OllamaManager {
     this.isStarting = true;
 
     try {
-      BrowserWindow.getAllWindows()[0]?.webContents.send('status-update', 'Starting Ollama...');
+      const window = BrowserWindow.getAllWindows()[0];
+      if (window?.webContents.isLoading()) {
+        await new Promise(resolve => window.webContents.on('did-finish-load', resolve));
+      }
+      window?.webContents.send('status-update', 'Starting Ollama...');
       await this.ensureOllamaInstalled();
 
-      BrowserWindow.getAllWindows()[0]?.webContents.send('status-update', 'Checking Ollama status...');
+      window?.webContents.send('status-update', 'Checking Ollama status...');
       const isRunning = await this.checkOllamaRunning();
 
       if (isRunning) {
@@ -151,15 +155,19 @@ class OllamaManager {
       } else {
 
       const isDev = process.env.NODE_ENV === 'development';
-      // Try multiple possible vector store locations
-      const possiblePaths = [
-        path.join(app.getAppPath(), 'vector_store'),
-        path.join(process.resourcesPath, 'vector_store'),
-        path.join(app.getAppPath(), '..', 'vector_store')
-      ];
+      // Try multiple possible vector store locations, prioritizing resources directory
+      const possiblePaths = isDev
+        ? [
+            path.join(app.getAppPath(), 'vector_store'),
+            path.join(app.getAppPath(), '..', 'vector_store')
+          ]
+        : [
+            path.join(process.resourcesPath, 'vector_store'),
+            path.join(app.getAppPath(), 'vector_store')
+          ];
 
-      BrowserWindow.getAllWindows()[0]?.webContents.send('status-update', 'Checking possible vector store paths for Ollama:');
-      possiblePaths.forEach(p => BrowserWindow.getAllWindows()[0]?.webContents.send('status-update', `- ${p}`));
+      window?.webContents.send('status-update', 'Checking possible vector store paths for Ollama:');
+      possiblePaths.forEach(p => window?.webContents.send('status-update', `- ${p}`));
 
       const vectorStorePath = possiblePaths.find(p => fs.existsSync(p));
       
@@ -168,7 +176,7 @@ class OllamaManager {
         throw new Error('Vector store not found in any expected location');
       }
 
-      BrowserWindow.getAllWindows()[0]?.webContents.send('status-update', `Found vector store at: ${vectorStorePath}`);
+      window?.webContents.send('status-update', `Found vector store at: ${vectorStorePath}`);
 
       const env = {
         ...process.env,
@@ -186,7 +194,7 @@ class OllamaManager {
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: true // Run in a new process group
           });
-          BrowserWindow.getAllWindows()[0]?.webContents.send('status-update', `Ollama process spawned with PID: ${this.ollamaProcess.pid}`);
+          window?.webContents.send('status-update', `Ollama process spawned with PID: ${this.ollamaProcess.pid}`);
         } catch (err) {
           console.error('Failed to spawn Ollama process:', err);
           throw err;
@@ -217,10 +225,10 @@ class OllamaManager {
         while (attempts < maxAttempts) {
           const isRunning = await this.checkOllamaRunning();
           if (isRunning) {
-            BrowserWindow.getAllWindows()[0]?.webContents.send('status-update', 'Ollama server is ready');
+            window?.webContents.send('status-update', 'Ollama server is ready');
             break;
           }
-          BrowserWindow.getAllWindows()[0]?.webContents.send('status-update', 'Waiting for Ollama server to be ready...');
+          window?.webContents.send('status-update', 'Waiting for Ollama server to be ready...');
           await new Promise(resolve => setTimeout(resolve, 1000));
           attempts++;
         }

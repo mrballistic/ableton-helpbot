@@ -12,6 +12,21 @@ let isInitializing = false;
 let initializationError = null;
 let initializationProgress = '';
 
+// Dynamic import wrapper with interop
+async function importModule(modulePath) {
+  try {
+    const module = await import(modulePath);
+    // Handle both ESM default exports and named exports
+    return {
+      ...module,
+      ...(module.default ? { default: module.default } : {})
+    };
+  } catch (error) {
+    console.error(`Failed to import ${modulePath}:`, error);
+    throw error;
+  }
+}
+
 async function initializeVectorStore() {
   if (isInitializing) return;
   isInitializing = true;
@@ -19,26 +34,28 @@ async function initializeVectorStore() {
   try {
     mainWindow.webContents.send('status-update', 'Starting vector store initialization...');
     
-    // Ensure Ollama is running before initializing
-    await ollamaManager.ensureRunning();
-    mainWindow.webContents.send('status-update', 'Ollama is running, proceeding with vector store initialization');
-
-    const { HNSWLib } = await import("@langchain/community/vectorstores/hnswlib");
-    const { OllamaEmbeddings } = await import("@langchain/community/embeddings/ollama");
+    // Import required modules
+    mainWindow.webContents.send('status-update', 'Loading required modules...');
+    const { HNSWLib } = await importModule('@langchain/community/vectorstores/hnswlib');
+    const { OllamaEmbeddings } = await importModule('@langchain/community/embeddings/ollama');
     
+    // Create embeddings instance
+    mainWindow.webContents.send('status-update', 'Creating embeddings instance...');
     const embeddings = new OllamaEmbeddings({
       baseUrl: "http://localhost:11434",
       model: "mistral",
     });
 
-    mainWindow.webContents.send('initialization-progress', 'Loading vector store...');
-    
-    // Try multiple possible vector store locations
-    const possiblePaths = [
-      path.join(app.getAppPath(), 'vector_store'),
-      path.join(process.resourcesPath, 'vector_store'),
-      path.join(app.getAppPath(), '..', 'vector_store')
-    ];
+    // Try multiple possible vector store locations, prioritizing resources directory
+    const possiblePaths = isDev
+      ? [
+          path.join(app.getAppPath(), 'vector_store'),
+          path.join(app.getAppPath(), '..', 'vector_store')
+        ]
+      : [
+          path.join(process.resourcesPath, 'vector_store'),
+          path.join(app.getAppPath(), 'vector_store')
+        ];
 
     mainWindow.webContents.send('status-update', 'Checking possible vector store paths:');
     possiblePaths.forEach(p => mainWindow.webContents.send('status-update', `- ${p}`));
@@ -46,24 +63,33 @@ async function initializeVectorStore() {
     const vectorStorePath = possiblePaths.find(p => fs.existsSync(p));
     
     if (!vectorStorePath) {
-      console.error('Vector store not found in any of these locations:', possiblePaths);
-      throw new Error('Vector store not found in any expected location');
+      const error = new Error('Vector store not found in any expected location');
+      mainWindow.webContents.send('status-update', error.message);
+      throw error;
     }
 
     mainWindow.webContents.send('status-update', `Found vector store at: ${vectorStorePath}`);
 
+    // Load vector store
     mainWindow.webContents.send('status-update', 'Loading vector store from path...');
-    vectorStore = await HNSWLib.load(vectorStorePath, embeddings);
-    mainWindow.webContents.send('status-update', 'Vector store loaded successfully');
+    try {
+      vectorStore = await HNSWLib.load(vectorStorePath, embeddings);
+      mainWindow.webContents.send('status-update', 'Vector store loaded successfully');
+    } catch (error) {
+      mainWindow.webContents.send('status-update', `Failed to load vector store: ${error.message}`);
+      throw error;
+    }
     
     mainWindow.webContents.send('initialization-progress', 'Vector store loaded');
     initializationError = null;
   } catch (error) {
     console.error('Failed to initialize vector store:', error);
     console.error('Error stack:', error.stack);
+    mainWindow.webContents.send('status-update', `Error: ${error.message}`);
     initializationError = error;
     mainWindow.webContents.send('initialization-progress', 'Initialization failed');
     vectorStore = null;
+    throw error;
   } finally {
     isInitializing = false;
   }
@@ -91,7 +117,6 @@ function createWindow() {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     const rendererPath = path.join(app.getAppPath(), '.vite/renderer/index.html');
-    console.log('Loading renderer from:', rendererPath);
     mainWindow.loadFile(rendererPath);
     mainWindow.webContents.openDevTools(); // Temporarily enable DevTools in production
   }
@@ -120,9 +145,7 @@ function setupIPCHandlers() {
     // Ensure Ollama is running
     await ollamaManager.ensureRunning();
 
-    const { HNSWLib } = await import("@langchain/community/vectorstores/hnswlib");
-    const { OllamaEmbeddings } = await import("@langchain/community/embeddings/ollama");
-    const { Ollama } = await import("@langchain/community/llms/ollama");
+    const { Ollama } = await importModule('@langchain/community/llms/ollama');
 
     const model = new Ollama({
       baseUrl: "http://localhost:11434",
@@ -159,20 +182,40 @@ Answer (use markdown formatting):`.trim();
 // Start the app
 app.whenReady().then(async () => {
   try {
-    console.log('Starting application...');
-    // Start Ollama before creating the window
-    await ollamaManager.start();
-    console.log('Ollama started successfully');
-    
+    // Create window first so we can send status updates
     createWindow();
-    console.log('Window created successfully');
     
-    // Initialize vector store after window is created
-    await initializeVectorStore();
-    console.log('Vector store initialized successfully');
+    // Wait for window to be ready
+    await new Promise((resolve) => {
+      mainWindow.webContents.on('did-finish-load', resolve);
+    });
+    
+    mainWindow.webContents.send('status-update', 'Window created successfully');
+    
+    // Start Ollama after window is created
+    mainWindow.webContents.send('status-update', 'Starting Ollama...');
+    await ollamaManager.start();
+    mainWindow.webContents.send('status-update', 'Ollama started successfully');
+    
+    // Wait a bit for Ollama to be fully ready
+    mainWindow.webContents.send('status-update', 'Waiting for Ollama to be fully ready...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Initialize vector store
+    mainWindow.webContents.send('status-update', 'Starting vector store initialization...');
+    try {
+      await initializeVectorStore();
+      mainWindow.webContents.send('status-update', 'Vector store initialized successfully');
+    } catch (error) {
+      mainWindow.webContents.send('status-update', `Failed to initialize vector store: ${error.message}`);
+      throw error;
+    }
   } catch (error) {
     console.error('Failed to start application:', error);
     console.error('Error stack:', error.stack);
+    if (mainWindow) {
+      mainWindow.webContents.send('status-update', `Error: ${error.message}`);
+    }
     await dialog.showErrorBox('Startup Error', 
       `Failed to start application: ${error.message}\n\nCheck the logs for more details.`
     );
@@ -186,25 +229,27 @@ app.whenReady().then(async () => {
 
 // Cleanup handlers
 app.on('window-all-closed', async function () {
-  console.log('All windows closed, cleaning up...');
+  mainWindow?.webContents.send('status-update', 'All windows closed, cleaning up...');
   await ollamaManager.stop();
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', async () => {
-  console.log('Application quitting, stopping Ollama...');
+  mainWindow?.webContents.send('status-update', 'Application quitting, stopping Ollama...');
   await ollamaManager.stop();
 });
 
 // Handle any uncaught errors
 process.on('uncaughtException', async (error) => {
   console.error('Uncaught exception:', error);
+  mainWindow?.webContents.send('status-update', `Uncaught error: ${error.message}`);
   await ollamaManager.stop();
   app.quit();
 });
 
 process.on('unhandledRejection', async (error) => {
   console.error('Unhandled rejection:', error);
+  mainWindow?.webContents.send('status-update', `Unhandled rejection: ${error.message}`);
   await ollamaManager.stop();
   app.quit();
 });

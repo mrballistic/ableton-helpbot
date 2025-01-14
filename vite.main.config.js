@@ -9,7 +9,18 @@ export default defineConfig({
       fileName: () => 'main.cjs'
     },
     rollupOptions: {
-      external: ['electron']
+      external: ['electron'],
+      output: {
+        format: 'cjs',
+        inlineDynamicImports: true
+      }
+    },
+    commonjsOptions: {
+      include: [
+        /node_modules/
+      ],
+      transformMixedEsModules: true,
+      defaultIsModuleExports: true
     },
     emptyOutDir: false,
     target: 'node14'

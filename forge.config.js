@@ -21,15 +21,19 @@ module.exports = {
       teamId: process.env.APPLE_TEAM_ID
     },
     extraResource: [
-      'vector_store'
-    ],
-    extraFiles: [
       {
         from: 'vector_store',
-        to: 'vector_store',
-        filter: ['**/*']
+        to: 'vector_store'
       }
-    ]
+    ],
+    files: [
+      "**/*",
+      "node_modules/**/*",
+      "vector_store/**/*"
+    ],
+    asar: {
+      unpack: "node_modules/**"
+    }
   },
   makers: [
     {

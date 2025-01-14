@@ -1,6 +1,6 @@
 {
   "name": "Ableton AI Chatbot",
-  "type": "module",
+  "type": "commonjs",
   "private": true,
   "version": "0.0.2",
   "description": "An AI-powered assistant for Ableton Live documentation",
@@ -29,7 +29,7 @@
   "dependencies": {
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
-    "@langchain/community": "^0.0.15",
+    "@langchain/community": "^0.0.19",
     "@mui/icons-material": "^5.15.2",
     "@mui/material": "^5.15.2",
     "chromadb": "^1.7.3",
