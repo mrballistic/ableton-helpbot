@@ -22,7 +22,8 @@ export default defineConfig({
         'langchain'
       ],
       output: {
-        format: 'commonjs',
+        format: 'cjs',
+
         preserveModules: true,
         preserveModulesRoot: '.'
       }

@@ -1,22 +1,18 @@
-'use strict';
-
 const path = require('path');
-require('./forge.env.cjs');
-
-const projectDir = __dirname;
+require('./forge.env.js');
 
 module.exports = {
   packagerConfig: {
     name: 'Ableton AI Chatbot',
     executableName: 'Ableton AI Chatbot',
-    icon: path.join(projectDir, 'build', 'logo.icns'),
+    icon: path.join(__dirname, 'build', 'logo.icns'),
     appBundleId: 'com.mrballistic.ableton.rag',
     osxSign: {
-      identity: 'Developer ID Application: Todd Greco (89YJQ4UB7V)',
-      hardenedRuntime: true,
-      entitlements: path.join(projectDir, 'build', 'entitlements.mac.plist'),
-      'entitlements-inherit': path.join(projectDir, 'build', 'entitlements.mac.plist'),
-      signatureFlags: ['runtime']
+      identity: '89YJQ4UB7V',
+      'hardened-runtime': true,
+      entitlements: 'build/entitlements.mac.sandbox.plist',
+      'entitlements-inherit': 'build/entitlements.mac.sandbox.plist',
+      'signature-flags': 'library'
     },
     osxNotarize: {
       tool: 'notarytool',
@@ -24,30 +20,34 @@ module.exports = {
       appleIdPassword: process.env.APPLE_PASSWORD,
       teamId: process.env.APPLE_TEAM_ID
     },
+    extraResource: [
+      {
+        from: 'vector_store',
+        to: 'vector_store'
+      }
+    ],
     files: [
       "**/*",
-      "!node_modules/**/*",
-      "node_modules/@langchain/**/*",
-      "node_modules/langchain/**/*",
-      "node_modules/hnswlib-node/**/*",
-      "node_modules/hnswlib-node/build/Release/addon.node",
+      "node_modules/**/*",
       "vector_store/**/*"
     ],
-    extraResource: ['vector_store'],
-    asar: {
-      unpack: "node_modules/hnswlib-node/build/Release/addon.node"
-    }
+    asar: false,
+    prune: false
   },
   makers: [
     {
       name: '@electron-forge/maker-dmg',
+      platforms: ['darwin'],
       config: {
-        format: 'ULFO',
         name: 'Ableton AI Chatbot',
-        icon: path.join(projectDir, 'build', 'logo.icns'),
+        icon: path.join(__dirname, 'build', 'logo.icns'),
         overwrite: true,
-        identity: 'Developer ID Application: Todd Greco (89YJQ4UB7V)'
+        identity: '89YJQ4UB7V'
       }
+    },
+    {
+      name: '@electron-forge/maker-zip',
+      platforms: ['darwin']
     }
   ],
   plugins: [
@@ -71,6 +71,10 @@ module.exports = {
           }
         ]
       }
+    },
+    {
+      name: '@electron-forge/plugin-auto-unpack-natives',
+      config: {}
     }
   ]
 };

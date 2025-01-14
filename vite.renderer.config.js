@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   build: {
+
     outDir: '.vite/renderer/main_window',
+
     rollupOptions: {
       external: [
         ...builtinModules,
