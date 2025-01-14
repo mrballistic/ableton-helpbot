@@ -14,8 +14,8 @@
     "server": "node server.js",
     "start": "electron-forge start",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron-forge start\"",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
+    "package": "node --no-deprecation ./node_modules/.bin/electron-forge package",
+    "make": "node --no-deprecation ./node_modules/.bin/electron-forge make",
     "publish": "electron-forge publish",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
@@ -147,7 +147,7 @@
           "config": {
             "build": [
               {
-                "entry": "electron/main.mjs",
+                "entry": "electron/main.cjs",
                 "config": "vite.main.config.js"
               },
               {

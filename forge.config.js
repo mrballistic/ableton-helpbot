@@ -21,8 +21,14 @@ module.exports = {
       teamId: process.env.APPLE_TEAM_ID
     },
     extraResource: [
-      'src/ollama/Ollama-darwin.zip',
       'vector_store'
+    ],
+    extraFiles: [
+      {
+        from: 'vector_store',
+        to: 'vector_store',
+        filter: ['**/*']
+      }
     ]
   },
   makers: [

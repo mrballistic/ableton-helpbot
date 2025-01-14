@@ -3,14 +3,15 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   build: {
     outDir: '.vite/build',
-    rollupOptions: {
-      external: ['electron']
-    },
     lib: {
       entry: 'electron/preload.cjs',
       formats: ['cjs'],
       fileName: () => 'preload.cjs'
     },
-    emptyOutDir: false
+    rollupOptions: {
+      external: ['electron']
+    },
+    emptyOutDir: false,
+    target: 'node14'
   }
 });
