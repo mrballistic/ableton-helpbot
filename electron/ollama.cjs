@@ -162,6 +162,7 @@ class OllamaManager {
             path.join(app.getAppPath(), '..', 'vector_store')
           ]
         : [
+            path.join(app.getAppPath(), '..', 'Resources', 'vector_store'),
             path.join(process.resourcesPath, 'vector_store'),
             path.join(app.getAppPath(), 'vector_store')
           ];

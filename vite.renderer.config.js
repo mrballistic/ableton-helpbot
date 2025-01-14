@@ -1,26 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
+import { builtinModules } from 'module';
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   base: './',
   build: {
-    outDir: '.vite/renderer',
-    assetsDir: 'assets',
     rollupOptions: {
-      external: ['electron'],
-      input: {
-        main: resolve(__dirname, 'index.html')
+      external: [
+        ...builtinModules,
+        'hnswlib-node'
+      ],
+      output: {
+        format: 'commonjs'
       }
-    },
-    emptyOutDir: true
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, 'src'),
-      '@public': resolve(__dirname, 'public')
     }
-  },
-  publicDir: 'public'
+  }
 });

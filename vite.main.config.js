@@ -11,10 +11,14 @@ export default defineConfig({
     rollupOptions: {
       external: [
         'electron',
-        '@langchain/community/vectorstores/hnswlib',
-        '@langchain/community/embeddings/ollama',
-        '@langchain/community/llms/ollama'
-      ]
+        '@langchain/community',
+        'langchain'
+      ],
+      output: {
+        format: 'cjs',
+        preserveModules: true,
+        preserveModulesRoot: '.'
+      }
     },
     emptyOutDir: false,
     target: 'node14'

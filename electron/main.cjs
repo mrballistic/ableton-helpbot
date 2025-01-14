@@ -2,8 +2,6 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const ollamaManager = require('./ollama.cjs');
-
-// Import langchain modules
 const { HNSWLib } = require('@langchain/community/vectorstores/hnswlib');
 const { OllamaEmbeddings } = require('@langchain/community/embeddings/ollama');
 const { Ollama } = require('@langchain/community/llms/ollama');

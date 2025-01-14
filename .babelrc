@@ -1,0 +1,25 @@
+{
+  "presets": [
+    ["@babel/preset-env", {
+      "targets": {
+        "node": "current"
+      },
+      "modules": "commonjs",
+      "useBuiltIns": "usage",
+      "corejs": 3
+    }]
+  ],
+  "plugins": [
+    ["@babel/plugin-transform-runtime", {
+      "regenerator": true,
+      "corejs": 3
+    }],
+    ["@babel/plugin-transform-modules-commonjs", {
+      "allowTopLevelThis": true,
+      "loose": true
+    }]
+  ],
+  "ignore": [
+    "node_modules/(?!(@langchain|langchain))"
+  ]
+}
