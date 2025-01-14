@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { https } from 'follow-redirects';
+import https from 'https';
 import { app } from 'electron';
 import { fileURLToPath } from 'url';
 import net from 'net';
@@ -34,33 +34,46 @@ class OllamaManager {
 
   async downloadOllama() {
     console.log('Downloading Ollama...');
-    const ollamaUrl = 'https://github.com/ollama/ollama/releases/latest/download/ollama-darwin';
+    const ollamaUrl = 'https://api.ollama.ai/download/ollama-darwin';
     
     // Download the binary directly
     const writeStream = fs.createWriteStream(this.binaryPath);
     
     await new Promise((resolve, reject) => {
-      const options = {
-        rejectUnauthorized: true,
+      const request = https.get(ollamaUrl, {
         headers: {
           'User-Agent': 'Ableton AI Chatbot'
-        }
-      };
-      
-      https.get(ollamaUrl, options, (response) => {
+        },
+        rejectUnauthorized: false // Temporarily disable certificate validation
+      }, (response) => {
         if (response.statusCode === 302 || response.statusCode === 301) {
-          // Handle redirect
-          https.get(response.headers.location, options, (redirectResponse) => {
+          console.log('Following redirect to:', response.headers.location);
+          https.get(response.headers.location, (redirectResponse) => {
             redirectResponse.pipe(writeStream);
             writeStream.on('finish', resolve);
-            writeStream.on('error', reject);
-          }).on('error', reject);
+            writeStream.on('error', (err) => {
+              console.error('Write stream error:', err);
+              reject(err);
+            });
+          }).on('error', (err) => {
+            console.error('Redirect request error:', err);
+            reject(err);
+          });
         } else {
           response.pipe(writeStream);
           writeStream.on('finish', resolve);
-          writeStream.on('error', reject);
+          writeStream.on('error', (err) => {
+            console.error('Write stream error:', err);
+            reject(err);
+          });
         }
-      }).on('error', reject);
+      });
+
+      request.on('error', (err) => {
+        console.error('Initial request error:', err);
+        console.error('Error details:', err.stack);
+        reject(err);
+      });
     });
 
     await new Promise((resolve, reject) => {
