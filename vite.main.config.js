@@ -9,18 +9,12 @@ export default defineConfig({
       fileName: () => 'main.cjs'
     },
     rollupOptions: {
-      external: ['electron'],
-      output: {
-        format: 'cjs',
-        inlineDynamicImports: true
-      }
-    },
-    commonjsOptions: {
-      include: [
-        /node_modules/
-      ],
-      transformMixedEsModules: true,
-      defaultIsModuleExports: true
+      external: [
+        'electron',
+        '@langchain/community/vectorstores/hnswlib',
+        '@langchain/community/embeddings/ollama',
+        '@langchain/community/llms/ollama'
+      ]
     },
     emptyOutDir: false,
     target: 'node14'

@@ -31,9 +31,8 @@ module.exports = {
       "node_modules/**/*",
       "vector_store/**/*"
     ],
-    asar: {
-      unpack: "node_modules/**"
-    }
+    asar: false,
+    prune: false
   },
   makers: [
     {

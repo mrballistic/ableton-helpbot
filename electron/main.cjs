@@ -3,6 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const ollamaManager = require('./ollama.cjs');
 
+// Import langchain modules
+const { HNSWLib } = require('@langchain/community/vectorstores/hnswlib');
+const { OllamaEmbeddings } = require('@langchain/community/embeddings/ollama');
+const { Ollama } = require('@langchain/community/llms/ollama');
+
 const isDev = process.env.NODE_ENV === 'development';
 let mainWindow = null;
 
@@ -12,32 +17,12 @@ let isInitializing = false;
 let initializationError = null;
 let initializationProgress = '';
 
-// Dynamic import wrapper with interop
-async function importModule(modulePath) {
-  try {
-    const module = await import(modulePath);
-    // Handle both ESM default exports and named exports
-    return {
-      ...module,
-      ...(module.default ? { default: module.default } : {})
-    };
-  } catch (error) {
-    console.error(`Failed to import ${modulePath}:`, error);
-    throw error;
-  }
-}
-
 async function initializeVectorStore() {
   if (isInitializing) return;
   isInitializing = true;
 
   try {
     mainWindow.webContents.send('status-update', 'Starting vector store initialization...');
-    
-    // Import required modules
-    mainWindow.webContents.send('status-update', 'Loading required modules...');
-    const { HNSWLib } = await importModule('@langchain/community/vectorstores/hnswlib');
-    const { OllamaEmbeddings } = await importModule('@langchain/community/embeddings/ollama');
     
     // Create embeddings instance
     mainWindow.webContents.send('status-update', 'Creating embeddings instance...');
@@ -144,8 +129,6 @@ function setupIPCHandlers() {
 
     // Ensure Ollama is running
     await ollamaManager.ensureRunning();
-
-    const { Ollama } = await importModule('@langchain/community/llms/ollama');
 
     const model = new Ollama({
       baseUrl: "http://localhost:11434",
