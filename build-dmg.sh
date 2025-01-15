@@ -3,6 +3,9 @@
 # Exit on error
 set -e
 
+echo "cleaning the build"
+rm -rf node_modules .vite/build && npm install
+
 # Create temp directory in a non-cloud location
 TEMP_DIR="/tmp/ableton-rag-build"
 rm -rf "$TEMP_DIR"
@@ -20,13 +23,16 @@ echo "Building the project..."
 cd "$TEMP_DIR" && ELECTRON_ENABLE_LOGGING=1 npm run make 2>&1 | tee build.log
 
 # Check if the build succeeded
-if [ -f "$TEMP_DIR/out/"*.dmg ]; then
-    echo "Build successful! Copying DMG back to project directory..."
+
+dmg_files=("$TEMP_DIR/out/make/"*.dmg)
+
+if [ -e "${dmg_files[0]}" ]; then
+    echo -e "\033[0;32mBuild successful! Copying DMG back to project directory...\033[0m"
     mkdir -p "out"
-    cp -R "$TEMP_DIR/out/"*.dmg "./out/"
-    echo "Build complete! Check the out directory for your DMG file."
+    cp -R "$TEMP_DIR/out/make/"*.dmg "./out/"
+    echo -e "\033[0;32mBuild complete! Check the out directory for your DMG file.\033[0m"
 else
-    echo "Build failed! Check build.log for details"
+    echo -e "\033[0;31mBuild failed! Check build.log for details\033[0m"
     cp "$TEMP_DIR/build.log" "./build.log"
     exit 1
 fi

@@ -37,7 +37,9 @@ async function initializeVectorStore() {
         ]
       : [
           path.join(process.resourcesPath, 'vector_store'),
-          path.join(app.getAppPath(), 'vector_store')
+          path.join(app.getAppPath(), 'vector_store'),
+          path.join(app.getAppPath(), '..', 'vector_store'),
+          path.join(app.getAppPath(), 'app.asar', 'vector_store')
         ];
 
     mainWindow.webContents.send('status-update', 'Checking possible vector store paths:');
@@ -99,7 +101,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    const rendererPath = path.join(app.getAppPath(), '.vite/renderer/index.html');
+    const rendererPath = path.join(app.getAppPath(), '.vite/renderer/main_window/index.html');
     mainWindow.loadFile(rendererPath);
     mainWindow.webContents.openDevTools(); // Temporarily enable DevTools in production
   }

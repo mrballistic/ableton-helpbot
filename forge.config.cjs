@@ -33,8 +33,9 @@ module.exports = {
       "node_modules/hnswlib-node/build/Release/addon.node",
       "vector_store/**/*"
     ],
+    extraResource: ['vector_store'],
     asar: {
-      unpack: "*.node"
+      unpack: "node_modules/hnswlib-node/build/Release/addon.node"
     }
   },
   makers: [
