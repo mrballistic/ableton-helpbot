@@ -42,5 +42,5 @@ vector_store/
 .env.development.local
 .env.test.local
 .env.production.local
-forge.env.cjs
+forge.env*
 
