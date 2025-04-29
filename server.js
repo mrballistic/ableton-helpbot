@@ -1,14 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import { Worker } from 'worker_threads';
-import { Ollama } from "@langchain/community/llms/ollama";
-import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
-import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
+import { ChatOpenAI } from "@langchain/openai";
+import { Chroma } from "@langchain/community/vectorstores/chroma";
+import { OpenAIEmbeddings } from "@langchain/openai";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { cpus } from 'os';
-import { existsSync, mkdirSync } from 'fs';
-import  fetch  from 'node-fetch';
+import { existsSync, mkdirSync, rmdirSync } from 'fs';
+import { ChromaClient } from 'chromadb';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,45 +29,98 @@ let isInitializing = false;
 let initializationError = null;
 let initializationProgress = '';
 
-const model = new Ollama({
-  baseUrl: "http://localhost:11434",
-  model: "mistral",
-  fetch: fetch 
+// Initialize GPT-4o Local model
+const model = new ChatOpenAI({
+  openAIApiKey: "sk-no-key-required-for-local", // Reverted to openAIApiKey
+  modelName: "gpt-4o",
+  temperature: 0.2, // Lower temperature for more factual responses
+  maxTokens: 2000, // Sufficient for detailed responses
+  basePath: "http://localhost:1234/v1" // Reverted to basePath
 });
 
-const embeddings = new OllamaEmbeddings({
-  baseUrl: "http://localhost:11434",
-  model: "mistral",
-  maxConcurrency: 5,
-  batchSize: 512
+// Initialize embeddings for ChromaDB
+const embeddings = new OpenAIEmbeddings({
+  openAIApiKey: "dummy-key", // Simple API key for LocalAI
+  modelName: "text-embedding-ada-002", // Use a model name that LocalAI recognizes
+  basePath: "http://localhost:1234/v1"
 });
+
+// Initialize ChromaDB client for direct operations
+const chromaClient = new ChromaClient({ path: "http://localhost:8000" });
+
+/**
+ * Checks if ChromaDB is available and running
+ * @returns {Promise<boolean>} True if ChromaDB is available, false otherwise
+ */
+async function isChromaDBAvailable() {
+  try {
+    await chromaClient.heartbeat();
+    return true;
+  } catch (error) {
+    console.error('ChromaDB is not available:', error.message);
+    return false;
+  }
+}
+
+/**
+ * Gets statistics about the ChromaDB collection
+ * @returns {Promise<Object>} Collection statistics
+ */
+async function getCollectionStats() {
+  try {
+    const collections = await chromaClient.listCollections();
+    const abletonCollection = collections.find(c => c.name === "ableton_docs");
+    
+    if (abletonCollection) {
+      const collection = await chromaClient.getCollection({ name: "ableton_docs" });
+      const count = await collection.count();
+      return { 
+        exists: true, 
+        count,
+        name: "ableton_docs"
+      };
+    }
+    
+    return { exists: false };
+  } catch (error) {
+    console.error('Error getting collection stats:', error.message);
+    return { error: error.message };
+  }
+}
 
 async function loadExistingVectorStore() {
-  const indexPath = join(VECTOR_STORE_PATH, 'hnswlib.index');
-  const docStorePath = join(VECTOR_STORE_PATH, 'docstore.json');
+  console.log('Checking for existing ChromaDB files...');
   
-  console.log('Checking for vector store files:');
-  console.log(`- Index path: ${indexPath}`);
-  console.log(`- Docstore path: ${docStorePath}`);
-  
-  if (existsSync(indexPath) && existsSync(docStorePath)) {
-    console.log('Found existing vector store files');
-    try {
-      console.log('Loading vector store...');
-      const loadedVectorStore = await HNSWLib.load(
-        VECTOR_STORE_PATH,
-        embeddings
-      );
-      console.log('Vector store loaded successfully');
-      return loadedVectorStore;
-    } catch (error) {
-      console.error('Error loading vector store:', error);
+  try {
+    // First check if ChromaDB is available
+    const isAvailable = await isChromaDBAvailable();
+    if (!isAvailable) {
+      console.error('ChromaDB server is not available. Please start ChromaDB server first.');
       return null;
     }
-  } else {
-    console.log('Missing vector store files:');
-    if (!existsSync(indexPath)) console.log('- Missing index file');
-    if (!existsSync(docStorePath)) console.log('- Missing docstore file');
+    
+    // Then check if our collection exists
+    const stats = await getCollectionStats();
+    if (!stats.exists) {
+      console.log('No existing ChromaDB collection found.');
+      return null;
+    }
+    
+    console.log(`Found existing ChromaDB collection with ${stats.count} documents.`);
+    console.log('Loading vector store...');
+    
+    const loadedVectorStore = await Chroma.load(
+      "ableton_docs", // Collection name
+      embeddings,
+      { 
+        url: "http://localhost:8000", // Default ChromaDB URL
+        collectionName: "ableton_docs"
+      }
+    );
+    console.log('ChromaDB vector store loaded successfully');
+    return loadedVectorStore;
+  } catch (error) {
+    console.error('Error loading ChromaDB vector store:', error);
     return null;
   }
 }
@@ -122,7 +175,7 @@ async function initializeVectorStore() {
     
     const existingStore = await loadExistingVectorStore();
     if (existingStore) {
-      console.log('Using existing vector store');
+      console.log('Using existing ChromaDB vector store');
       initializationProgress = 'Loaded existing vector store';
       vectorStore = existingStore;
       return;
@@ -181,25 +234,34 @@ async function initializeVectorStore() {
       throw new Error('No documents were processed successfully');
     }
 
-    console.log('Creating vector store from processed documents...');
+    console.log('Creating ChromaDB vector store from processed documents...');
     initializationProgress = 'Generating embeddings...';
 
     const BATCH_SIZE = 100;
-    let currentVectorStore = null;
-
+    
     await processInBatches(
       processedDocs,
       BATCH_SIZE,
       async (batch) => {
         console.log(`Processing batch of ${batch.length} documents...`);
-        if (!currentVectorStore) {
-          currentVectorStore = await HNSWLib.fromTexts(
-            batch.map(doc => doc.pageContent.trim()),
-            batch.map(doc => doc.metadata),
-            embeddings
+        
+        if (!vectorStore) {
+          vectorStore = await Chroma.fromDocuments(
+            batch.map(doc => ({
+              pageContent: doc.pageContent.trim(),
+              metadata: doc.metadata
+            })),
+            embeddings,
+            {
+              collectionName: "ableton_docs",
+              url: "http://localhost:8000", // Default ChromaDB URL
+              collectionMetadata: {
+                "description": "Ableton Live documentation"
+              }
+            }
           );
         } else {
-          await currentVectorStore.addDocuments(
+          await vectorStore.addDocuments(
             batch.map(doc => ({
               pageContent: doc.pageContent.trim(),
               metadata: doc.metadata
@@ -215,13 +277,7 @@ async function initializeVectorStore() {
       }
     );
 
-    vectorStore = currentVectorStore;
-
-    console.log('Saving vector store...');
-    initializationProgress = 'Saving vector store...';
-    await vectorStore.save(VECTOR_STORE_PATH);
-
-    console.log('Vector store initialized and saved successfully');
+    console.log('ChromaDB vector store initialized successfully');
     initializationProgress = 'Initialization complete';
     initializationError = null;
   } catch (error) {
@@ -268,34 +324,71 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
-    const { message } = req.body;
+    const { message, filters = {}, k = 5 } = req.body;
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
     console.log('Received question:', message);
+    console.log('Using filters:', filters);
     
     console.log('Searching for relevant context...');
-    const results = await vectorStore.similaritySearch(message, 5);
-    console.log(`Found ${results.length} relevant chunks`);
+    
+    // Advanced search with optional metadata filtering
+    const searchOptions = { k: parseInt(k) };
+    
+    // If filters are provided, add them to the search
+    if (Object.keys(filters).length > 0) {
+      searchOptions.filter = filters;
+    }
+    
+    // Perform the search with enhanced options
+    let results;
+    try {
+      // Try metadata-filtered search if filters exist
+      if (Object.keys(filters).length > 0) {
+        results = await vectorStore.similaritySearch(
+          message, 
+          searchOptions.k,
+          searchOptions.filter
+        );
+      } else {
+        // Otherwise do a standard search
+        results = await vectorStore.similaritySearch(message, searchOptions.k);
+      }
+      console.log(`Found ${results.length} relevant chunks`);
+    } catch (error) {
+      console.error('Error during vector search:', error);
+      // Fallback to standard search if metadata filtering fails
+      results = await vectorStore.similaritySearch(message, searchOptions.k);
+      console.log(`Fallback search found ${results.length} relevant chunks`);
+    }
+    
+    // No results found
+    if (results.length === 0) {
+      return res.json({ 
+        response: "I couldn't find any relevant information to answer your question. Could you please rephrase or ask about another topic related to Ableton Live?",
+        context: []
+      });
+    }
     
     const context = results.map(doc => doc.pageContent.trim()).join('\n\n');
     
-    console.log('Generating response with Ollama...');
-    const prompt = `You are an Ableton Live expert assistant. Use the following context from the Ableton documentation to answer the user's question. Format your response using markdown with appropriate headings, lists, bold text, and code blocks where relevant. Only use information from the provided context, and if you cannot find relevant information, say so.
+    console.log('Generating response with GPT-4o Local...');
+    const response = await model.invoke([
+      ["system", `You are an Ableton Live expert assistant. Use the following context from the Ableton documentation to answer the user's question. Format your response using markdown with appropriate headings, lists, bold text, and code blocks where relevant. Only use information from the provided context, and if you cannot find relevant information, say so.
+
+When referencing specific features, bold their names. When listing step-by-step instructions, use numbered lists. When explaining concepts, organize information with clear headings.
 
 Context:
-${context}
-
-User Question: ${message}
-
-Answer (use markdown formatting):`.trim();
-
-    const response = await model.call(prompt);
+${context}`],
+      ["human", message]
+    ]);
+    
     console.log('Response generated successfully');
     
     res.json({ 
-      response: response.trim(),
+      response: response.content,
       context: results.map(doc => ({
         content: doc.pageContent.trim(),
         metadata: doc.metadata
@@ -306,6 +399,83 @@ Answer (use markdown formatting):`.trim();
     res.status(500).json({ 
       error: 'Failed to process request',
       details: error.message
+    });
+  }
+});
+
+// ChromaDB management API
+app.get('/api/vectorstore/stats', async (req, res) => {
+  try {
+    const isAvailable = await isChromaDBAvailable();
+    if (!isAvailable) {
+      return res.status(503).json({ 
+        error: 'ChromaDB server is not available',
+        status: 'unavailable'
+      });
+    }
+    
+    const stats = await getCollectionStats();
+    return res.json({
+      status: 'available',
+      collection: stats,
+      initialized: vectorStore !== null
+    });
+  } catch (error) {
+    console.error('Error getting ChromaDB stats:', error);
+    return res.status(500).json({ 
+      error: 'Failed to get ChromaDB stats',
+      details: error.message
+    });
+  }
+});
+
+// Add ability to reset the collection if needed during development
+app.post('/api/vectorstore/reset', async (req, res) => {
+  try {
+    // Only allow in development mode for safety
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'This operation is not allowed in production mode' });
+    }
+    
+    const isAvailable = await isChromaDBAvailable();
+    if (!isAvailable) {
+      return res.status(503).json({ error: 'ChromaDB server is not available' });
+    }
+    
+    const stats = await getCollectionStats();
+    if (stats.exists) {
+      try {
+        await chromaClient.deleteCollection({ name: "ableton_docs" });
+        console.log('ChromaDB collection deleted successfully');
+        
+        // Reset the application state
+        vectorStore = null;
+        isInitializing = false;
+        initializationError = null;
+        initializationProgress = '';
+        
+        return res.json({ 
+          status: 'success',
+          message: 'Collection reset successfully' 
+        });
+      } catch (error) {
+        console.error('Error resetting ChromaDB collection:', error);
+        return res.status(500).json({ 
+          error: 'Failed to reset ChromaDB collection',
+          details: error.message
+        });
+      }
+    } else {
+      return res.json({ 
+        status: 'success',
+        message: 'No collection to reset' 
+      });
+    }
+  } catch (error) {
+    console.error('Error processing reset request:', error);
+    return res.status(500).json({ 
+      error: 'Failed to process reset request',
+      details: error.message 
     });
   }
 });

@@ -10,10 +10,10 @@
 - **Syntax Highlighter**: For code block formatting
 
 ### Backend Technologies
-- **Node.js**: Runtime environment
+- **Node.js**: Runtime environment (v20 LTS)
 - **Express**: Web server framework
 - **Worker Threads**: For parallel processing
-- **Ollama**: Local LLM serving
+- **LocalAI**: Local LLM serving for GPT-4o
 - **LangChain**: Framework for LLM application development
 
 ### PDF Processing
@@ -22,31 +22,35 @@
 - **Recursive Character Text Splitter**: For document chunking
 
 ### Vector Store & Embeddings
-- **HNSWLib**: Efficient vector storage and similarity search
-- **Ollama Embeddings**: For generating text embeddings
-- **Sentence Transformers**: Used via Ollama for embeddings
+- **ChromaDB**: Vector database for document storage and similarity search
+- **OpenAI Compatible Embeddings**: For generating text embeddings via LocalAI
+- **Sentence Transformers**: Backend embedding model
 
 ## Development Setup
 
 ### Prerequisites
-- Node.js 18+
-- Python 3.8+ for PDF processing
-- Ollama installed (via `brew install ollama` on macOS)
-- Mistral model pulled (`ollama pull mistral`)
+- Node.js 20+ LTS
+- Python 3.10 (specifically) for ChromaDB compatibility
+- LocalAI installed with GPT-4o model
+- ChromaDB server running on port 8000
 
 ### Python Dependencies
 - pypdf
 - langchain
 - sentence-transformers
 - numpy
+- chromadb==1.0.7
 
 ### Installation Steps
 1. Clone the repository
 2. Install JS dependencies with `npm install`
-3. Install Python dependencies
-4. Place Ableton PDF documentation in `/pdf` directory
-5. Start Ollama (`brew services start ollama`)
-6. Run application (`npm start`)
+3. Create Python 3.10 virtual environment with `python3.10 -m venv chromadb_venv`
+4. Activate the environment with `source chromadb_venv/bin/activate`
+5. Install Python dependencies in the virtual environment
+6. Place Ableton PDF documentation in `/pdf` directory
+7. Start LocalAI with GPT-4o model
+8. Start ChromaDB server using `./start-chromadb.sh`
+9. Run application (`npm start`)
 
 ## Technical Constraints
 
@@ -58,11 +62,12 @@
 
 ### Compatibility Constraints
 - **Browser Support**: Modern browsers required for full functionality
-- **OS Requirements**: macOS, Linux, or Windows with Ollama support
+- **OS Requirements**: macOS, Linux, or Windows with LocalAI support
 - **Hardware Requirements**: 
-  - Minimum 8GB RAM
+  - Minimum 16GB RAM (for GPT-4o Local)
   - Multi-core CPU recommended
   - SSD storage for faster vector retrieval
+  - GPU recommended for accelerated inference
 
 ### Security Constraints
 - **Local Processing**: All data stays local, no external API calls
@@ -75,16 +80,19 @@
 ```json
 {
   "cors": "^2.8.5",
-  "express": "^4.18.2",
-  "langchain": "^0.0.167",
-  "@langchain/community": "^0.0.23",
+  "express": "^4.19.2",
+  "langchain": "^0.1.9",
+  "@langchain/community": "^0.0.35",
+  "@langchain/openai": "^0.0.15",
+  "@langchain/text": "^0.1.0",
   "node-fetch": "^3.3.2",
+  "chromadb": "^1.7.3",
   "react": "^18.2.0",
   "react-dom": "^18.2.0",
-  "react-markdown": "^8.0.7",
-  "@mui/material": "^5.14.12",
-  "@mui/icons-material": "^5.14.12",
-  "@emotion/react": "^11.11.1",
+  "react-markdown": "^9.0.1",
+  "@mui/material": "^5.15.2",
+  "@mui/icons-material": "^5.15.2",
+  "@emotion/react": "^11.11.3",
   "@emotion/styled": "^11.11.0"
 }
 ```
@@ -92,12 +100,12 @@
 ### Development Dependencies
 ```json
 {
-  "vite": "^4.4.11",
-  "@vitejs/plugin-react": "^4.1.0",
-  "eslint": "^8.51.0",
+  "vite": "^5.0.8",
+  "@vitejs/plugin-react": "^4.2.1",
+  "eslint": "^8.55.0",
   "jest": "^29.7.0",
-  "@testing-library/react": "^14.0.0",
-  "@testing-library/jest-dom": "^6.1.3"
+  "@testing-library/react": "^14.1.2",
+  "@testing-library/jest-dom": "^6.1.5"
 }
 ```
 
@@ -106,14 +114,12 @@
 ### Local Development
 - Express server on port 3000
 - Vite dev server for frontend (proxies to Express)
-- Ollama service running locally
+- LocalAI service running on port 1234
+- ChromaDB server running on port 8000
 
 ### File Storage
 - PDF files in `/pdf` directory
-- Vector store in `/vector_store` directory:
-  - `hnswlib.index`: Vector index file
-  - `docstore.json`: Document metadata
-  - `args.json`: Vector store configuration
+- Vector store data managed by ChromaDB
 
 ### Processing Pipeline
 ```mermaid
@@ -122,8 +128,7 @@ flowchart TD
     Loader --> Splitter[Text Splitter]
     Splitter --> Chunks[Text Chunks]
     Chunks --> Embeddings[Generate Embeddings]
-    Embeddings --> VectorStore[Vector Store]
-    VectorStore --> Persistence[Save to Disk]
+    Embeddings --> VectorStore[ChromaDB Vector Store]
 ```
 
 ## Technical Debt & Considerations

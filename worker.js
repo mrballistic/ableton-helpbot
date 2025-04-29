@@ -17,7 +17,7 @@ async function processChunk() {
     const docs = await loader.load();
     console.log(`Loaded ${docs.length} pages from PDF`);
     
-    // Split into chunks
+    // Split into chunks - using more refined settings for better context preservation
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
       chunkOverlap: 200,

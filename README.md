@@ -4,9 +4,9 @@ A 🤖 RAG-based chatbot that provides answers from Ableton Live's documentation
 
 ## ✨ Features
 
-- 🏠 Local LLM processing using Ollama
+- 🏠 Local LLM processing using LocalAI with GPT-4o
 - 📄 PDF document processing with parallel workers
-- 💾 Vector store persistence for fast startup
+- 💾 Vector store persistence using ChromaDB
 - 🌓 Automatic dark/light mode
 - ♿ Accessibility support
 - ⏱️ Real-time initialization progress
@@ -16,14 +16,19 @@ A 🤖 RAG-based chatbot that provides answers from Ableton Live's documentation
 
 ## 🔧 Prerequisites
 
-- 📦 Node.js 18+
-- 🐍 Python 3.8+ (for PDF processing)
-- 🐳 Ollama installed (`brew install ollama` on macOS)
-- 🧠 The Mistral model pulled (`ollama pull mistral`)
+- 📦 Node.js 20+ LTS
+- 🐍 Python 3.10 (specifically required for ChromaDB compatibility)
+- 🤖 LocalAI installed with GPT-4o model
+- 🗃️ ChromaDB server running
 
 ### 🐍 Python Dependencies
 ```bash
-pip install pypdf langchain sentence-transformers numpy
+# Create a Python 3.10 virtual environment (required for ChromaDB)
+python3.10 -m venv chromadb_venv
+source chromadb_venv/bin/activate
+
+# Install required packages
+pip install chromadb==1.0.7 pypdf langchain-community langchain
 ```
 
 ## 🚀 Installation
@@ -47,12 +52,17 @@ pdf/
 
 ## 🏃‍♂️ Running the Application
 
-1. Start Ollama:
+1. Start the ChromaDB server:
 ```bash
-brew services start ollama
+./start-chromadb.sh
 ```
 
-2. Start the application:
+2. Start LocalAI with GPT-4o model:
+```bash
+# Start LocalAI with your preferred configuration
+```
+
+3. Start the application:
 ```bash
 npm start
 ```
@@ -61,7 +71,7 @@ This will:
 - 🌐 Start the React development server
 - 🖥️ Launch the Express backend
 - 📑 Process PDFs (first run only)
-- 🗄️ Create and save the vector store
+- 🗄️ Create and save the vector store in ChromaDB
 
 ## 🏗️ Architecture
 

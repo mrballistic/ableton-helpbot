@@ -1,8 +1,11 @@
 {
   "name": "ableton-rag",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "server": "node server.js",
@@ -19,14 +22,15 @@
   "dependencies": {
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
-    "@langchain/community": "^0.0.15",
+    "@langchain/community": "^0.0.35",
+    "@langchain/openai": "^0.0.15",
     "@mui/icons-material": "^5.15.2",
     "@mui/material": "^5.15.2",
-    "chromadb": "^1.7.3",
+    "chromadb": "^1.10.5",
     "concurrently": "^8.2.2",
     "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "langchain": "^0.0.213",
+    "express": "^4.19.2",
+    "langchain": "^0.1.9",
     "markdown-it": "^14.1.0",
     "node-fetch": "^3.3.2",
     "pdf-parse": "^1.1.1",
