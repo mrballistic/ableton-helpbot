@@ -20,7 +20,7 @@ This document details the successful configuration of LocalAI with GPT-4o for th
 
 The model file is located at:
 ```
-/Users/todd.greco/.localai/models/gpt-4o.gguf
+~/.localai/models/gpt-4o.gguf
 ```
 
 This is a GGUF format model file compatible with LocalAI's llama-cpp backend.
@@ -128,12 +128,6 @@ ln -sf ~/.localai/models/gpt-4o.gguf ~/.localai/models/gpt-4o
 ```bash
 brew install grpc onnxruntime
 ```
-
-### gRPC Connection Issues
-
-**Problem**: gRPC can conflict with GPU acceleration, particularly on Mac systems.
-
-**Solution**: Disable gRPC with the `DISABLE_GRPC=1` environment variable or `--disable-grpc` flag.
 
 ## Performance Considerations
 
