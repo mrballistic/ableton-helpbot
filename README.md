@@ -1,37 +1,37 @@
-# Ableton Documentation Assistant
+# 🎹 Ableton Documentation Assistant
 
-A RAG-based chatbot that provides answers from Ableton Live's documentation using local LLM processing.
+A 🤖 RAG-based chatbot that provides answers from Ableton Live's documentation using local LLM processing.
 
-## Features
+## ✨ Features
 
-- Local LLM processing using Ollama
-- PDF document processing with parallel workers
-- Vector store persistence for fast startup
-- Automatic dark/light mode
-- Accessibility support
-- Real-time initialization progress
-- Memory-efficient processing
-- Markdown rendering with code highlighting
-- Source context display
+- 🏠 Local LLM processing using Ollama
+- 📄 PDF document processing with parallel workers
+- 💾 Vector store persistence for fast startup
+- 🌓 Automatic dark/light mode
+- ♿ Accessibility support
+- ⏱️ Real-time initialization progress
+- 🧠 Memory-efficient processing
+- ✍️ Markdown rendering with code highlighting
+- 📚 Source context display
 
-## Prerequisites
+## 🔧 Prerequisites
 
-- Node.js 18+
-- Python 3.8+ (for PDF processing)
-- Ollama installed (`brew install ollama` on macOS)
-- The Mistral model pulled (`ollama pull mistral`)
+- 📦 Node.js 18+
+- 🐍 Python 3.8+ (for PDF processing)
+- 🐳 Ollama installed (`brew install ollama` on macOS)
+- 🧠 The Mistral model pulled (`ollama pull mistral`)
 
-### Python Dependencies
+### 🐍 Python Dependencies
 ```bash
 pip install pypdf langchain sentence-transformers numpy
 ```
 
-## Installation
+## 🚀 Installation
 
 1. Clone the repository:
 ```bash
 git clone https://github.com/mrballistic/ableton-helpbot.git
-cd ableton-rag
+cd ableton-helpbot
 ```
 
 2. Install dependencies:
@@ -45,7 +45,7 @@ pdf/
 └── live12-manual-en.pdf
 ```
 
-## Running the Application
+## 🏃‍♂️ Running the Application
 
 1. Start Ollama:
 ```bash
@@ -58,56 +58,56 @@ npm start
 ```
 
 This will:
-- Start the React development server
-- Launch the Express backend
-- Process PDFs (first run only)
-- Create and save the vector store
+- 🌐 Start the React development server
+- 🖥️ Launch the Express backend
+- 📑 Process PDFs (first run only)
+- 🗄️ Create and save the vector store
 
-## Architecture
+## 🏗️ Architecture
 
-### Frontend
-- React with Material-UI
-- Automatic dark/light mode detection
-- Real-time initialization progress
-- Accessibility features
-- Responsive design
-- Markdown rendering with syntax highlighting
+### 🌐 Frontend
+- ⚛️ React with Material-UI
+- 🌓 Automatic dark/light mode detection
+- ⏱️ Real-time initialization progress
+- ♿ Accessibility features
+- 📱 Responsive design
+- ✍️ Markdown rendering with syntax highlighting
 
-### Backend
-- Express server
-- PDF processing with worker threads
-- Vector store management
-- LLM integration
-- Error handling
-- Python bridge for PDF processing
+### 🖥️ Backend
+- 🚂 Express server
+- 🧵 PDF processing with worker threads
+- 🗄️ Vector store management
+- 🤖 LLM integration
+- 🚨 Error handling
+- 🔄 Python bridge for PDF processing
 
-### Vector Store
-- HNSWLib for efficient similarity search
-- Persistent storage
-- Batched processing
-- Memory-efficient operation
+### 📊 Vector Store
+- 🔍 HNSWLib for efficient similarity search
+- 💾 Persistent storage
+- 📦 Batched processing
+- 🧠 Memory-efficient operation
 
-### Processing Pipeline
-1. PDF Loading
-   - Parallel processing with worker threads
-   - Page-range distribution
-   - Progress tracking
-   - Python-based text extraction
+### ⚙️ Processing Pipeline
+1. 📄 PDF Loading
+   - 🔄 Parallel processing with worker threads
+   - 📑 Page-range distribution
+   - 📈 Progress tracking
+   - 🐍 Python-based text extraction
 
-2. Text Processing
-   - Chunk generation
-   - Metadata preservation
-   - Batch processing
-   - Sentence transformers for embeddings
+2. 📝 Text Processing
+   - 🧩 Chunk generation
+   - 📋 Metadata preservation
+   - 📦 Batch processing
+   - 🔤 Sentence transformers for embeddings
 
-3. Vector Store
-   - Embedding generation
-   - Persistent storage
-   - Fast loading
+3. 🗄️ Vector Store
+   - 🧮 Embedding generation
+   - 💾 Persistent storage
+   - ⚡ Fast loading
 
-## Development
+## 👨‍💻 Development
 
-### Running Tests
+### 🧪 Running Tests
 ```bash
 # Run all tests
 npm test
@@ -128,7 +128,7 @@ npm test VisuallyHidden.test.jsx
 npm run test:coverage
 ```
 
-### Project Structure
+### 📁 Project Structure
 ```
 ├── src/                      # Frontend source
 │   ├── components/           # React components
@@ -156,76 +156,76 @@ npm run test:coverage
     └── hnswlib.index     # Vector index
 ```
 
-### Components
+### 🧩 Components
 
-#### ChatBubble
-- Renders user and assistant messages
-- Markdown rendering with syntax highlighting
-- Source context display
-- Accessibility support
+#### 💬 ChatBubble
+- 📝 Renders user and assistant messages
+- ✍️ Markdown rendering with syntax highlighting
+- 📚 Source context display
+- ♿ Accessibility support
 
-#### ChatInterface
-- Main chat interface
-- Message input handling
-- Message history management
-- Loading states
+#### 💻 ChatInterface
+- 🗨️ Main chat interface
+- ⌨️ Message input handling
+- 📜 Message history management
+- ⏳ Loading states
 
-#### InitializationModal
-- Displays initialization progress
-- Real-time status updates
-- Progress tracking
+#### 🔄 InitializationModal
+- 📊 Displays initialization progress
+- ⏱️ Real-time status updates
+- 📈 Progress tracking
 
-#### VisuallyHidden
-- Accessibility helper component
-- Screen reader support
-- ARIA announcements
+#### 👁️‍🗨️ VisuallyHidden
+- ♿ Accessibility helper component
+- 🔊 Screen reader support
+- 🏷️ ARIA announcements
 
-### Testing Structure
-- Unit tests for each component
-- Integration tests for full flows
-- Accessibility testing
-- Error handling coverage
-- Loading state verification
-- Component interaction tests
+### 🧪 Testing Structure
+- 🔬 Unit tests for each component
+- 🔄 Integration tests for full flows
+- ♿ Accessibility testing
+- 🚨 Error handling coverage
+- ⏳ Loading state verification
+- 🤝 Component interaction tests
 
-### Environment Variables
+### 🔐 Environment Variables
 No environment variables needed as the application runs locally.
 
-## Performance
+## ⚡ Performance
 
-- First run: Processes PDFs and creates vector store (~30-60 minutes)
-- Subsequent runs: Loads existing vector store (seconds)
-- Memory usage: Efficient through batched processing
-- CPU usage: Parallel processing based on available cores
+- 🔄 First run: Processes PDFs and creates vector store (~30-60 minutes)
+- ⚡ Subsequent runs: Loads existing vector store (seconds)
+- 🧠 Memory usage: Efficient through batched processing
+- 💪 CPU usage: Parallel processing based on available cores
 
-## Accessibility
+## ♿ Accessibility
 
-- Screen reader support
-- Keyboard navigation
-- ARIA labels
-- Progress announcements
-- Color contrast compliance
-- Focus management
-- Hidden helper elements
+- 🔊 Screen reader support
+- ⌨️ Keyboard navigation
+- 🏷️ ARIA labels
+- 📢 Progress announcements
+- 🎨 Color contrast compliance
+- 🔍 Focus management
+- 👁️‍🗨️ Hidden helper elements
 
-## Error Handling
+## 🚨 Error Handling
 
-- PDF processing errors
-- LLM connection issues
-- Vector store failures
-- Network problems
-- Initialization errors
-- Markdown parsing errors
-- Python bridge errors
+- 📄 PDF processing errors
+- 🤖 LLM connection issues
+- 🗄️ Vector store failures
+- 🌐 Network problems
+- 🚀 Initialization errors
+- ✍️ Markdown parsing errors
+- 🔄 Python bridge errors
 
-## Contributing
+## 👥 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit changes
-4. Push to the branch
-5. Create a Pull Request
+1. 🍴 Fork the repository
+2. 🌿 Create a feature branch
+3. 💾 Commit changes
+4. 🚀 Push to the branch
+5. 📬 Create a Pull Request
 
-## License
+## 📜 License
 
 See [LICENSE.md](license.md) for details.

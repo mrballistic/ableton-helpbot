@@ -1,0 +1,114 @@
+# Ableton Documentation Assistant Project Rules
+
+## Project Patterns
+
+### Architecture Patterns
+- RAG (Retrieval-Augmented Generation) architecture is central to the application
+- Express backend with React frontend
+- Vector storage with HNSWLib for document retrieval
+- Worker thread model for parallel processing
+- Component-based UI with accessibility as a core principle
+
+### Code Organization
+- React components in `src/components/`
+- Helper utilities in `src/helpers/`
+- Tests alongside their component files
+- Server logic in `server.js`
+- PDF processing in `worker.js`
+- Vector store in `vector_store/` directory
+
+### Naming Conventions
+- React components use PascalCase (e.g., `ChatBubble`, `InitializationModal`)
+- Helper functions use camelCase
+- CSS classes use kebab-case
+- Test files append `.test.jsx` to the component name
+- Constants use UPPER_SNAKE_CASE
+
+## Development Workflows
+
+### PDF Processing
+- PDF files stored in `/pdf` directory
+- Documents are processed into chunks for vector embedding
+- Processing is batched to manage memory usage
+- Worker threads divide PDF pages for parallel processing
+
+### Vector Store Management
+- Vector store is persisted to disk for faster startup
+- HNSWLib index stored in `vector_store/hnswlib.index`
+- Document metadata stored in `vector_store/docstore.json`
+- Reused across sessions to avoid reprocessing documents
+
+### Testing Strategy
+- Component tests focus on rendering and interaction
+- Server tests focus on API endpoints and error handling
+- Test both happy path and error conditions
+- Ensure accessibility features are tested
+
+## Coding Preferences
+
+### React Style
+- Functional components with hooks
+- Material-UI for component framework
+- Use theme provider for consistent styling
+- Implement proper accessibility attributes
+- Prefer composition over inheritance
+
+### State Management
+- Use React hooks for state management (useState, useEffect)
+- Refs for DOM interactions (useRef)
+- Prefer explicit props over context when practical
+- Clear separation between UI state and business logic
+
+### Backend Style
+- Async/await for asynchronous operations
+- Structured error handling with detailed logging
+- Batch processing for memory-intensive operations
+- Graceful initialization and shutdown
+
+### Error Handling
+- User-friendly error messages in the UI
+- Detailed error logging on the server
+- Graceful degradation when services are unavailable
+- Clear distinction between initialization and runtime errors
+
+## Implementation Notes
+
+### LLM Integration
+- Ollama used for local LLM processing
+- Mistral model preferred for balance of performance and accuracy
+- Prompt engineering follows the RAG pattern with clear context separation
+- Response formatting uses markdown for structure
+
+### Performance Considerations
+- Batch processing to manage memory usage
+- Worker threads for CPU-intensive operations
+- Persistent vector store to avoid reprocessing
+- Progress tracking for long-running operations
+
+### Accessibility Standards
+- ARIA attributes for screen reader support
+- Keyboard navigation support
+- Focus management for modal dialogs
+- Color contrast compliance
+- VisuallyHidden component for screen reader announcements
+
+## Project-Specific Knowledge
+
+### Initialization Flow
+- Check for existing vector store
+- If found, load it directly
+- If not, process PDFs and create a new vector store
+- Track and report progress during initialization
+
+### User Query Flow
+- User inputs question
+- Backend retrieves relevant context from vector store
+- Context and question combined in prompt
+- LLM generates response with markdown formatting
+- Response and source context returned to frontend
+
+### Known Challenges
+- Initial PDF processing is memory and time-intensive
+- LLM response generation can be slow
+- Context retrieval quality depends on embedding quality
+- Large PDF files require careful memory management
