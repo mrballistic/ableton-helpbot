@@ -12,7 +12,7 @@ dist
 dist-ssr
 *.local
 
-chromadb*
+chromadb_*
 
 # Editor directories and files
 .vscode/*

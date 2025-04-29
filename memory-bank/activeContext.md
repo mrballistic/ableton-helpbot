@@ -1,13 +1,14 @@
 # Active Context: Ableton Documentation Assistant
 
 ## Current Work Focus
-The project is currently focused on upgrading the technology stack of the Ableton Documentation Assistant to improve performance and response quality. Recent work has involved successfully switching from Ollama with Mistral to GPT-4o Local via LocalAI, upgrading Node.js to v20 LTS, and replacing HNSWLib with ChromaDB for vector storage. We've also fixed compatibility issues with ChromaDB requiring Python 3.10 specifically.
+The project is currently focused on upgrading the technology stack of the Ableton Documentation Assistant to improve performance and response quality. Recent work has involved successfully switching from Ollama with Mistral to GPT-4o Local via LocalAI, upgrading Node.js to v20 LTS, and replacing HNSWLib with ChromaDB for vector storage. We've also fixed compatibility issues with ChromaDB requiring Python 3.10 specifically and discovered that ChromaDB 1.0.7 requires using the dedicated `chroma run` command for server startup.
 
 ## Recent Changes
 - Successfully implemented LocalAI with GPT-4o model for improved response quality
 - Resolved LocalAI configuration issues by properly setting up model paths and configuration files
 - Upgraded Node.js to v20 LTS for better performance and security
 - Successfully set up ChromaDB with correct Python virtual environment and startup command
+- Fixed ChromaDB server startup issues by discovering the proper `chroma run` command for ChromaDB 1.0.7
 - Created an executable startup script (start-chromadb.sh) for easier ChromaDB initialization
 - Created a new Python 3.10 virtual environment (chromadb_venv) for ChromaDB compatibility
 - Fixed authentication errors with LocalAI embeddings by updating model and API key configuration

@@ -49,8 +49,26 @@
 5. Install Python dependencies in the virtual environment
 6. Place Ableton PDF documentation in `/pdf` directory
 7. Start LocalAI with GPT-4o model
-8. Start ChromaDB server using `./start-chromadb.sh`
+8. Start ChromaDB server using `./start-chromadb.sh` (which uses the `chroma run` command)
 9. Run application (`npm start`)
+
+### Starting ChromaDB Server
+ChromaDB 1.0.7 provides a dedicated command-line tool called `chroma` that must be used to start the server:
+
+```bash
+# Activate the Python 3.10 environment
+source chromadb_venv/bin/activate
+
+# Start ChromaDB using the chroma command-line tool
+chroma run --host 0.0.0.0 --port 8000 --path ./vector_store
+```
+
+Key parameters:
+- `--host`: Sets the listening address (0.0.0.0 listens on all interfaces)
+- `--port`: Sets the server port (8000 by default)
+- `--path`: Specifies the directory for persistent storage
+
+> **Important**: Do NOT attempt to start ChromaDB server using `python -m chromadb.app` as this approach doesn't work correctly with ChromaDB 1.0.7. Always use the `chroma run` command.
 
 ## Technical Constraints
 

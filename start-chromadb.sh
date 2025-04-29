@@ -28,8 +28,9 @@ echo "Starting ChromaDB server on port 8000..."
 echo "Press Ctrl+C to stop the server"
 echo "Logging output to ./logs/chromadb.log"
 
-# Run ChromaDB with all output (including errors) redirected to a log file
-python -m chromadb.app --port 8000 --host 0.0.0.0 --path ./vector_store --log-level DEBUG > ./logs/chromadb.log 2>&1 &
+# Run ChromaDB using the dedicated chroma command-line tool
+# This is the proper way to run ChromaDB server for version 1.0.7
+chroma run --host 0.0.0.0 --port 8000 --path ./vector_store > ./logs/chromadb.log 2>&1 &
 
 # Save the PID of the ChromaDB process
 CHROMA_PID=$!

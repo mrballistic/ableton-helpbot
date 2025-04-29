@@ -57,6 +57,13 @@ pdf/
 ./start-chromadb.sh
 ```
 
+> **Important**: ChromaDB 1.0.7 requires using the dedicated `chroma run` command-line tool. If running manually, use:
+> ```bash
+> source chromadb_venv/bin/activate
+> chroma run --host 0.0.0.0 --port 8000 --path ./vector_store
+> ```
+> Do NOT attempt to start ChromaDB using `python -m chromadb.app` as this won't work with version 1.0.7.
+
 2. Start LocalAI with GPT-4o model:
 ```bash
 # Start LocalAI with your preferred configuration
