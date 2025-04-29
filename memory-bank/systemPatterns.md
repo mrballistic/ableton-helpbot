@@ -27,7 +27,7 @@ flowchart TD
     end
     
     subgraph Storage [Vector Storage]
-        HNSW[HNSWLib Index]
+        ChromaDB[ChromaDB]
         Meta[Document Metadata]
     end
     
@@ -43,9 +43,9 @@ flowchart TD
 ## Key Technical Decisions
 
 ### RAG Implementation
-- **Retrieval**: Uses HNSWLib for efficient similarity search
+- **Retrieval**: Uses ChromaDB for efficient similarity search
 - **Augmentation**: Retrieves top relevant context from documentation
-- **Generation**: Uses Ollama's Mistral model for answer generation
+- **Generation**: Uses LocalAI with GPT-4o model for answer generation
 - **Response Format**: Returns formatted markdown with source context
 
 ### PDF Processing Strategy
@@ -57,7 +57,7 @@ flowchart TD
 ### Vector Store Management
 - **Persistence**: Saves vector store to disk for fast startup
 - **Memory Efficiency**: Processes in batches to limit memory usage
-- **Embedding Model**: Uses Ollama for consistent embeddings
+- **Embedding Model**: Uses LocalAI for consistent embeddings
 - **Metadata Preservation**: Maintains source information for context
 
 ### Frontend Design Patterns
@@ -112,7 +112,7 @@ flowchart TD
 2. Frontend sends request to backend API
 3. Backend retrieves relevant context from vector store
 4. Context is combined with question in prompt template
-5. Prompt is sent to Ollama LLM for processing
+5. Prompt is sent to LocalAI with GPT-4o for processing
 6. Response is formatted with markdown
 7. Response and source context are returned to frontend
 8. Frontend displays response with formatting and source references

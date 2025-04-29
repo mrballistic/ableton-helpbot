@@ -14,10 +14,10 @@ The Ableton Documentation Assistant is a chatbot application that allows users t
 - Allow users to see the source context for answers
 
 ### Technical Requirements
-- Use local LLM processing via Ollama
+- Use local LLM processing via LocalAI with GPT-4o model
 - Implement RAG architecture for accurate responses
 - Process PDFs effectively and efficiently
-- Create and maintain a vector store for embeddings
+- Create and maintain a vector store for embeddings using ChromaDB
 - Provide a responsive React-based UI
 - Show real-time initialization progress
 - Support markdown rendering with code highlighting

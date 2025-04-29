@@ -10,6 +10,8 @@ import { cpus } from 'os';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { ChromaClient } from 'chromadb';
 import axios from 'axios';
+import process from 'node:process';
+import fetch from 'node-fetch'; // Add this import for Node.js fetch
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -178,47 +180,79 @@ const embeddings = new LocalAIEmbeddings();
 
 async function isChromaDBAvailable() {
   try {
-    // Try multiple endpoints to cover different ChromaDB versions
-    const endpoints = [
-      `/api/v1/heartbeat`,  // Older versions
-      `/api/v2`,            // Newer versions
-      `/`,                  // Root endpoint
-    ];
+    console.log(`Checking if ChromaDB is available on port ${CHROMA_PORT}...`);
     
-    for (const endpoint of endpoints) {
-      try {
-        const response = await fetch(`http://localhost:${CHROMA_PORT}${endpoint}`);
-        
-        // Any 2xx status code is acceptable
-        if (response.status >= 200 && response.status < 300) {
-          return true;
-        }
-        
-        // 404 on some endpoints is okay if ChromaDB is running
-        // but the specific endpoint doesn't exist in this version
-        if (response.status === 404) {
-          continue; // Try next endpoint
-        }
-        
-        // For 410 Gone status, try a different approach
-        if (response.status === 410) {
-          // If we got 410, try the ChromaDB client API directly
-          try {
-            const collections = await chromaClient.listCollections();
-            console.log('Successfully listed ChromaDB collections:', collections.map(c => c.name));
-            return true;
-          } catch (clientErr) {
-            console.warn('ChromaDB client API check failed:', clientErr.message);
-          }
-        }
-      } catch (endpointErr) {
-        continue; // Try next endpoint
+    // Try using axios instead of fetch for the heartbeat check
+    try {
+      console.log(`Testing ChromaDB endpoint with axios: /api/v2/heartbeat`);
+      const axiosResponse = await axios.get(`http://localhost:${CHROMA_PORT}/api/v2/heartbeat`, {
+        headers: { 'Accept': 'application/json' },
+        // Important: Set short timeout to avoid hanging
+        timeout: 3000
+      });
+      
+      console.log(`Axios response from /api/v2/heartbeat: status ${axiosResponse.status}`);
+      
+      if (axiosResponse.status >= 200 && axiosResponse.status < 300) {
+        console.log(`ChromaDB is available (axios status ${axiosResponse.status})`);
+        return true;
       }
+    } catch (axiosErr) {
+      console.log(`Axios error checking endpoint: ${axiosErr.message}`);
+      // Continue to other methods if axios fails
     }
     
-    // If we reach here, all endpoint checks failed
-    console.warn(`ChromaDB is running but couldn't find a working API endpoint on port ${CHROMA_PORT}`);
-    return false;
+    // Try the direct client API approach
+    try {
+      console.log('Trying ChromaDB client API directly');
+      const collections = await chromaClient.listCollections();
+      console.log('Successfully listed ChromaDB collections:', collections.map(c => c.name));
+      return true;
+    } catch (clientErr) {
+      console.log(`ChromaDB client API check failed: ${clientErr.message}`);
+    }
+    
+    // Last resort: try curl-like request using Node's http module
+    try {
+      console.log('Attempting Node.js http module request');
+      const http = await import('http');
+      
+      return new Promise((resolve) => {
+        const req = http.request({
+          hostname: 'localhost',
+          port: CHROMA_PORT,
+          path: '/api/v2/heartbeat',
+          method: 'GET',
+          timeout: 3000
+        }, (res) => {
+          console.log(`HTTP response status: ${res.statusCode}`);
+          
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            console.log('ChromaDB is available (http module check)');
+            resolve(true);
+          } else {
+            console.log(`HTTP request returned non-200 status: ${res.statusCode}`);
+            resolve(false);
+          }
+        });
+        
+        req.on('error', (err) => {
+          console.log(`HTTP request error: ${err.message}`);
+          resolve(false);
+        });
+        
+        req.on('timeout', () => {
+          console.log('HTTP request timed out');
+          req.destroy();
+          resolve(false);
+        });
+        
+        req.end();
+      });
+    } catch (httpErr) {
+      console.log(`HTTP module check failed: ${httpErr.message}`);
+      return false;
+    }
     
   } catch (error) {
     console.error(`Failed to connect to ChromaDB: ${error.message}`);

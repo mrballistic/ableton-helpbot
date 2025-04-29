@@ -70,6 +70,29 @@ Key parameters:
 
 > **Important**: Do NOT attempt to start ChromaDB server using `python -m chromadb.app` as this approach doesn't work correctly with ChromaDB 1.0.7. Always use the `chroma run` command.
 
+### Starting LocalAI with GPU Acceleration
+
+For optimal performance, especially with the GPT-4o model, GPU acceleration is recommended:
+
+```bash
+# For Apple Silicon Macs
+export METAL=1
+export DISABLE_GRPC=1
+
+# For NVIDIA GPUs
+export CUDA=1
+export DISABLE_GRPC=1
+
+# Start LocalAI with GPU acceleration
+local-ai serve \
+  --models-path ~/.localai/models \
+  --config-path ~/.localai/configs \
+  --address 0.0.0.0:1234 \
+  --threads=8
+```
+
+The provided `update_localai_gpu.sh` script can be used to start LocalAI with the appropriate GPU acceleration settings.
+
 ## Technical Constraints
 
 ### Performance Constraints
@@ -77,10 +100,12 @@ Key parameters:
 - **CPU Usage**: Embedding generation is CPU-intensive
 - **Startup Time**: Initial processing of PDFs can take 30-60 minutes
 - **Response Time**: LLM generation affects response speed
+- **GPU Requirements**: LocalAI with GPT-4o performs significantly better with GPU acceleration
 
 ### Compatibility Constraints
 - **Browser Support**: Modern browsers required for full functionality
 - **OS Requirements**: macOS, Linux, or Windows with LocalAI support
+- **Python Version**: Specifically Python 3.10 for ChromaDB compatibility
 - **Hardware Requirements**: 
   - Minimum 16GB RAM (for GPT-4o Local)
   - Multi-core CPU recommended
@@ -149,6 +174,11 @@ flowchart TD
     Embeddings --> VectorStore[ChromaDB Vector Store]
 ```
 
+### Startup Sequence
+1. Start ChromaDB server with `./start-chromadb.sh`
+2. Start LocalAI server with `./update_localai_gpu.sh` (for GPU acceleration)
+3. Start the application with `npm start`
+
 ## Technical Debt & Considerations
 
 - **Error Recovery**: Improved handling of PDF processing failures
@@ -159,3 +189,6 @@ flowchart TD
 - **User Preferences**: Saving UI preferences
 - **Multi-document Support**: Better handling of multiple PDF sources
 - **Visualization**: Visualization of vector relationships
+- **Service Orchestration**: Better coordination of ChromaDB and LocalAI startup
+- **LocalAI Fallback**: Mechanism for handling LocalAI unavailability
+- **Automatic Migration**: Tools for migrating from HNSWLib to ChromaDB vectors

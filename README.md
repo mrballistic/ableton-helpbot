@@ -19,7 +19,7 @@ A 🤖 RAG-based chatbot that provides answers from Ableton Live's documentation
 - 📦 Node.js 20+ LTS
 - 🐍 Python 3.10 (specifically required for ChromaDB compatibility)
 - 🤖 LocalAI installed with GPT-4o model
-- 🗃️ ChromaDB server running
+- 🗃️ ChromaDB server running on port 8000
 
 ### 🐍 Python Dependencies
 ```bash
@@ -29,6 +29,20 @@ source chromadb_venv/bin/activate
 
 # Install required packages
 pip install chromadb==1.0.7 pypdf langchain-community langchain
+```
+
+### 🤖 LocalAI Setup
+```bash
+# Configure LocalAI with GPT-4o model
+# Make sure the model is located at ~/.localai/models/gpt-4o.gguf
+
+# For GPU acceleration (optional):
+export METAL=1  # For Apple Silicon
+# OR
+export CUDA=1  # For NVIDIA GPUs
+
+# Start LocalAI server
+local-ai serve --models-path ~/.localai/models --config-path ~/.localai/configs --address 0.0.0.0:1234 --disable-grpc
 ```
 
 ## 🚀 Installation
@@ -66,7 +80,11 @@ pdf/
 
 2. Start LocalAI with GPT-4o model:
 ```bash
-# Start LocalAI with your preferred configuration
+# With GPU acceleration (recommended)
+./update_localai_gpu.sh
+
+# OR without GPU acceleration
+local-ai serve --models-path ~/.localai/models --config-path ~/.localai/configs --address 0.0.0.0:1234 --disable-grpc
 ```
 
 3. Start the application:
@@ -93,16 +111,17 @@ This will:
 ### 🖥️ Backend
 - 🚂 Express server
 - 🧵 PDF processing with worker threads
-- 🗄️ Vector store management
-- 🤖 LLM integration
+- 🗄️ Vector store management with ChromaDB
+- 🤖 LLM integration via LocalAI
 - 🚨 Error handling
 - 🔄 Python bridge for PDF processing
 
 ### 📊 Vector Store
-- 🔍 HNSWLib for efficient similarity search
+- 🔍 ChromaDB for efficient similarity search
 - 💾 Persistent storage
 - 📦 Batched processing
 - 🧠 Memory-efficient operation
+- 🏷️ Enhanced metadata filtering
 
 ### ⚙️ Processing Pipeline
 1. 📄 PDF Loading
@@ -115,12 +134,13 @@ This will:
    - 🧩 Chunk generation
    - 📋 Metadata preservation
    - 📦 Batch processing
-   - 🔤 Sentence transformers for embeddings
+   - 🔤 LocalAI for embeddings
 
 3. 🗄️ Vector Store
-   - 🧮 Embedding generation
-   - 💾 Persistent storage
+   - 🧮 Embedding generation via LocalAI
+   - 💾 Persistent storage with ChromaDB
    - ⚡ Fast loading
+   - 🔍 Enhanced similarity search
 
 ## 👨‍💻 Development
 
@@ -167,10 +187,15 @@ npm run test:coverage
 ├── server.js              # Express backend
 ├── worker.js             # PDF processing worker
 ├── pdf/                  # PDF documentation
-└── vector_store/         # Persistent vector storage
-    ├── args.json         # Vector store arguments
-    ├── docstore.json     # Document metadata
-    └── hnswlib.index     # Vector index
+├── vector_store/         # Persistent vector storage
+│   ├── args.json         # Vector store arguments
+│   ├── chroma.sqlite3    # ChromaDB database
+│   └── docstore.json     # Document metadata
+├── configuration/        # Configuration files
+│   └── chroma_config.json # ChromaDB configuration
+├── chromadb_venv/        # Python 3.10 virtual environment for ChromaDB
+├── start-chromadb.sh     # Script to start ChromaDB server
+└── update_localai_gpu.sh # Script to start LocalAI with GPU acceleration
 ```
 
 ### 🧩 Components
@@ -205,15 +230,31 @@ npm run test:coverage
 - ⏳ Loading state verification
 - 🤝 Component interaction tests
 
-### 🔐 Environment Variables
-No environment variables needed as the application runs locally.
-
 ## ⚡ Performance
 
 - 🔄 First run: Processes PDFs and creates vector store (~30-60 minutes)
 - ⚡ Subsequent runs: Loads existing vector store (seconds)
 - 🧠 Memory usage: Efficient through batched processing
 - 💪 CPU usage: Parallel processing based on available cores
+- 🖥️ GPU acceleration: Optional for LocalAI when hardware supports it
+
+## 🚨 Known Issues & Troubleshooting
+
+### ChromaDB Issues
+- 🐍 Requires specifically Python 3.10 (fails silently with newer versions like 3.13)
+- 🏃 Must be started using the `chroma run` command (NOT `python -m chromadb.app`)
+- 💓 Heartbeat check requires using API v2 endpoint
+- 🏁 Needs to be started before the application
+
+### LocalAI Issues
+- 🔑 Embedding generation requires specific model name "text-embedding-3-small" for compatibility
+- 🖥️ GPU acceleration requires properly configured CUDA or Metal support
+- 🏁 Needs to be running with correct models loaded before application usage
+
+### General Issues
+- ⏱️ Initial PDF processing takes significant time for large documents
+- 💾 No progress persistence if initialization is interrupted
+- 🔄 No automatic migration path from HNSWLib to ChromaDB vectors
 
 ## ♿ Accessibility
 
@@ -224,16 +265,6 @@ No environment variables needed as the application runs locally.
 - 🎨 Color contrast compliance
 - 🔍 Focus management
 - 👁️‍🗨️ Hidden helper elements
-
-## 🚨 Error Handling
-
-- 📄 PDF processing errors
-- 🤖 LLM connection issues
-- 🗄️ Vector store failures
-- 🌐 Network problems
-- 🚀 Initialization errors
-- ✍️ Markdown parsing errors
-- 🔄 Python bridge errors
 
 ## 👥 Contributing
 

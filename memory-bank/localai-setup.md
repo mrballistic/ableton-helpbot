@@ -53,6 +53,32 @@ Key parameters:
 - `--config-path`: Points to the directory containing the configuration files
 - `--address`: Sets the host and port for the API server
 
+## GPU Acceleration
+
+LocalAI can use GPU acceleration to improve performance. For Mac systems with Apple Silicon chips, Metal API support can be enabled. The `update_localai_gpu.sh` script configures this:
+
+```bash
+#!/bin/bash
+export METAL=1
+export DISABLE_GRPC=1
+
+local-ai serve \
+  --models-path ~/.localai/models \
+  --config-path ~/.localai/configs \
+  --address 0.0.0.0:1234 \
+  --threads=8
+```
+
+Key settings:
+- `METAL=1`: Enables Metal API acceleration for Apple Silicon
+- `DISABLE_GRPC=1`: Disables gRPC which can cause conflicts with GPU acceleration
+- `--threads=8`: Optimizes thread count for performance
+
+To run this script:
+```bash
+bash update_localai_gpu.sh
+```
+
 ## Integration with Application
 
 ### Model Integration
@@ -105,13 +131,9 @@ brew install grpc onnxruntime
 
 ### gRPC Connection Issues
 
-**Problem**: Errors related to gRPC connections.
+**Problem**: gRPC can conflict with GPU acceleration, particularly on Mac systems.
 
-**Solution**: Use the `--disable-grpc` flag when starting LocalAI:
-
-```bash
-local-ai serve --models-path ~/.localai/models --config-path ~/.localai/configs --address 0.0.0.0:1234 --disable-grpc
-```
+**Solution**: Disable gRPC with the `DISABLE_GRPC=1` environment variable or `--disable-grpc` flag.
 
 ## Performance Considerations
 
