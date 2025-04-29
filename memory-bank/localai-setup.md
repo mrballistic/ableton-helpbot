@@ -116,7 +116,12 @@ local-ai serve --models-path ~/.localai/models --config-path ~/.localai/configs 
 ## Performance Considerations
 
 - The GPT-4o model requires approximately 4GB of RAM
-- Metal acceleration is used on macOS for improved performance
+- Metal acceleration is configured for optimal performance on Apple Silicon (M1/M2/M3)
+- GPU acceleration parameters:
+  - `f16: true` - Enables half-precision for faster computation
+  - `metal: true` - Enables Metal API acceleration for Apple Silicon
+  - `gpu: true` - Activates GPU acceleration
+  - `n_gpu_layers: -1` - Offloads all layers to the GPU
 - Setting appropriate thread count based on your CPU helps optimize performance
 - Additional context window size may require more RAM
 

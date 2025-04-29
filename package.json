@@ -26,6 +26,7 @@
     "@langchain/openai": "^0.0.15",
     "@mui/icons-material": "^5.15.2",
     "@mui/material": "^5.15.2",
+    "axios": "^1.9.0",
     "chromadb": "^1.10.5",
     "concurrently": "^8.2.2",
     "cors": "^2.8.5",
